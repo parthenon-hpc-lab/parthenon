@@ -155,6 +155,13 @@ if (ENABLE_HDF5)
     --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "poisson_gmg")
 
+  list(APPEND TEST_DIRS face_poisson)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/face_poisson/face-poisson-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/face_poisson/parthinput.face_poisson \
+    --num_steps 6")
+  list(APPEND EXTRA_TEST_LABELS "face_poisson")
+
   list(APPEND TEST_DIRS sparse_advection)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \

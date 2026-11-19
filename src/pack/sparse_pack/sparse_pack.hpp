@@ -166,11 +166,24 @@ class SparsePack : public SparsePackBase {
 
   KOKKOS_INLINE_FUNCTION int GetGID(const int b) const { return block_props_(b, 27); }
 
+  // Whether block b owns the shared topological elements at offset (off1, off2, off3)
+  // from its center, i.e. on its boundary. Only determined on the leaf grid.
+  KOKKOS_INLINE_FUNCTION bool IsOwned(const int b, const int off3, const int off2,
+                                      const int off1) const {
+    return block_props_(b, ownership_offset + (off1 + 1) +
+                               3 * ((off2 + 1) + 3 * (off3 + 1)));
+  }
+
   int GetLevelHost(const int b, const int off3, const int off2, const int off1) const {
     return block_props_h_(b, (off1 + 1) + 3 * ((off2 + 1) + 3 * (off3 + 1)));
   }
 
   int GetGIDHost(const int b) const { return block_props_h_(b, 27); }
+
+  bool IsOwnedHost(const int b, const int off3, const int off2, const int off1) const {
+    return block_props_h_(b, ownership_offset + (off1 + 1) +
+                                 3 * ((off2 + 1) + 3 * (off3 + 1)));
+  }
 
   // Number of components of a variable on a block
   template <typename T>

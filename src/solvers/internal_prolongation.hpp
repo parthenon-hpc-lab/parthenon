@@ -21,7 +21,9 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/comms/bvals_in_one.hpp"
 #include "kokkos_abstraction.hpp"
+#include "solvers/solver_utils.hpp"
 
 namespace parthenon {
 
@@ -261,6 +263,103 @@ class RestrictionCombined {
           pack_coarse(b, n, ck, cj, ci) /= 8.0;
         });
     return TaskStatus::complete;
+  }
+};
+
+// Restriction for multigrid that uses full weighting (1/4, 1/2, 1/4) of the fine
+// elements in the directions in which a topological element is offset and averages the
+// two fine elements in the other directions. For cell centered fields this is the same
+// as averaging the fine cells, but for face and edge fields the default RestrictAverage
+// only samples the fine elements that coincide with coarse elements in offset directions
+// (which is required to preserve the divergence of restricted face fields). Injection in
+// those directions degrades multigrid convergence with weak smoothers and makes the
+// V-cycle non-symmetric, which breaks multigrid preconditioned CG. The fine ghost
+// elements are needed, so restriction starts with a same level boundary exchange using
+// the mesh boundary conditions. This is only correct for uniform Cartesian coordinates.
+class RestrictionFullWeighting {
+ public:
+  RestrictionFullWeighting() = default;
+  RestrictionFullWeighting(parthenon::ParameterInput *pin, const std::string &label) {}
+
+  template <class VarTL>
+  parthenon::TaskID Restrict(parthenon::TaskList &tl, parthenon::TaskID depends_on,
+                             std::shared_ptr<parthenon::MeshData<Real>> &md) {
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
+        depends_on, tl, md, md->GetMeshPointer()->multilevel);
+    return tl.AddTask(comm, TF(RestrictImpl<VarTL>), md);
+  }
+
+  template <class VarTL>
+  static parthenon::TaskStatus
+  RestrictImpl(std::shared_ptr<parthenon::MeshData<Real>> &md) {
+    static const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
+    static const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(
+        md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
+    static const auto tt = utils::FieldsTopologicalType(md.get(), desc);
+    auto pack = desc.GetPack(md.get());
+    auto pack_coarse = desc_coarse.GetPack(md.get());
+    if (pack.GetNBlocks() == 0) return TaskStatus::complete;
+    utils::ForEachElement(tt, [&](auto el) {
+      RestrictElement<decltype(el)::value>(md, pack, pack_coarse);
+    });
+    return TaskStatus::complete;
+  }
+
+  template <TopologicalElement te, class pack_t>
+  static void RestrictElement(std::shared_ptr<parthenon::MeshData<Real>> &md,
+                              const pack_t &pack, const pack_t &pack_coarse) {
+    using namespace parthenon;
+    const int ndim = md->GetMeshPointer()->ndim;
+    IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+    IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+    IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+    IndexRange cib = md->GetBoundsI(CellLevel::coarse, IndexDomain::interior, te);
+    IndexRange cjb = md->GetBoundsJ(CellLevel::coarse, IndexDomain::interior, te);
+    IndexRange ckb = md->GetBoundsK(CellLevel::coarse, IndexDomain::interior, te);
+    constexpr bool offi = TopologicalOffsetI(te);
+    constexpr bool offj = TopologicalOffsetJ(te);
+    constexpr bool offk = TopologicalOffsetK(te);
+    parthenon::par_for(
+        "RestrictFullWeighting", 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
+        pack.GetUpperBoundHost(0), ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
+        KOKKOS_LAMBDA(const int b, const int n, const int ck, const int cj,
+                      const int ci) {
+          // Range of fine offsets and the weight of each offset in one direction
+          auto stencil = [](const bool active, const bool offset, int &lo, int &hi,
+                            Real *w) {
+            lo = (active && offset) ? -1 : 0;
+            hi = active ? 1 : 0;
+            if (!active) {
+              w[1] = 1.0;
+            } else if (offset) {
+              w[0] = 0.25;
+              w[1] = 0.5;
+              w[2] = 0.25;
+            } else {
+              w[1] = 0.5;
+              w[2] = 0.5;
+            }
+          };
+          int ilo, ihi, jlo, jhi, klo, khi;
+          Real wi[3]{}, wj[3]{}, wk[3]{};
+          stencil(true, offi, ilo, ihi, wi);
+          stencil(ndim > 1, offj, jlo, jhi, wj);
+          stencil(ndim > 2, offk, klo, khi, wk);
+          // Fine element coinciding with the lower corner of the coarse element
+          const int fi = 2 * (ci - cib.s) + ib.s;
+          const int fj = (ndim > 1) ? 2 * (cj - cjb.s) + jb.s : jb.s;
+          const int fk = (ndim > 2) ? 2 * (ck - ckb.s) + kb.s : kb.s;
+          Real val = 0.0;
+          for (int ok = klo; ok <= khi; ++ok) {
+            for (int oj = jlo; oj <= jhi; ++oj) {
+              for (int oi = ilo; oi <= ihi; ++oi) {
+                val += wk[ok + 1] * wj[oj + 1] * wi[oi + 1] *
+                       pack(b, te, n, fk + ok, fj + oj, fi + oi);
+              }
+            }
+          }
+          pack_coarse(b, te, n, ck, cj, ci) = val;
+        });
   }
 };
 } // namespace solvers

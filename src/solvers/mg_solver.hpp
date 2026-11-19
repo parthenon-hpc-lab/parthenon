@@ -160,7 +160,15 @@ class MGSolver : public SolverBase, MGSolverCounter {
                   Mesh *pmesh) {
     using namespace utils;
     TaskID none;
-    auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
+    auto partitions = pmesh->GetDefaultBlockPartitions();
+    if (default_partition_idx >= partitions.size())
+      PARTHENON_FAIL("Does not work with non-default partitioning.");
+    auto partition = partitions[default_partition_idx];
+
+    auto &md = pmesh->mesh_data.Add(container_base, partition,
+                                    pmesh->mesh_data.GetCreationFields(container_base));
+    auto count = GlobalElementCount<FieldTL>(dependence, tl, &nelements, md);
+    auto [itl, solve_id] = tl.AddSublist(count, {1, this->params_.max_iters});
     iter_counter = -1;
     auto update_iter = itl.AddTask(
         TaskQualifier::local_sync | TaskQualifier::once_per_region, none, "print",
@@ -177,13 +185,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto timing_guard =
         TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("MG: Residual", tl));
 
-    auto partitions = pmesh->GetDefaultBlockPartitions();
-    if (default_partition_idx >= partitions.size())
-      PARTHENON_FAIL("Does not work with non-default partitioning.");
-    auto partition = partitions[default_partition_idx];
-
-    auto &md = pmesh->mesh_data.Add(container_base, partition,
-                                    pmesh->mesh_data.GetCreationFields(container_base));
     auto &md_u = pmesh->mesh_data.Add(container_u, partition, sol_fields);
     auto &md_res_err = pmesh->mesh_data.Add(container_res_err, partition, sol_fields);
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partition, sol_fields);
@@ -200,7 +201,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto check = itl.AddTask(
         TaskQualifier::completion, get_res, "Check residual",
         [default_partition_idx](MGSolver *solver, Mesh *pmesh) {
-          Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+          Real rms_res = std::sqrt(solver->residual.val / solver->nelements.val);
           if (Globals::my_rank == 0 && default_partition_idx == 0)
             printf("%i %e\n", solver->iter_counter, rms_res);
           solver->final_residual = rms_res;
@@ -272,6 +273,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
   MGParams params_;
   int iter_counter;
   AllReduce<Real> residual;
+  // Number of elements on which the solution lives, which normalizes the rms residual
+  AllReduce<Real> nelements;
   equations_t eqs_;
   prolongator_t prolongator_;
   restrictor_t restrictor_;
@@ -285,20 +288,29 @@ class MGSolver : public SolverBase, MGSolverCounter {
                     std::shared_ptr<MeshData<Real>> &md_diag,
                     std::shared_ptr<MeshData<Real>> &md_xold,
                     std::shared_ptr<MeshData<Real>> &md_xnew, double weight) {
-    using namespace parthenon;
-    const int ndim = md_rhs->GetMeshPointer()->ndim;
-    using TE = parthenon::TopologicalElement;
-    TE te = TE::CC;
-    IndexRange ib = md_rhs->GetBoundsI(IndexDomain::interior, te);
-    IndexRange jb = md_rhs->GetBoundsJ(IndexDomain::interior, te);
-    IndexRange kb = md_rhs->GetBoundsK(IndexDomain::interior, te);
-
     static auto desc = parthenon::MakePackDescriptorFromTypeList<FieldTL>(md_rhs.get());
+    static const auto tt = utils::FieldsTopologicalType(md_rhs.get(), desc);
     auto pack_rhs = desc.GetPack(md_rhs.get());
     auto pack_Ax = desc.GetPack(md_Ax.get());
     auto pack_diag = desc.GetPack(md_diag.get());
     auto pack_xold = desc.GetPack(md_xold.get());
     auto pack_xnew = desc.GetPack(md_xnew.get());
+    utils::ForEachElement(tt, [&](auto el) {
+      JacobiElement<decltype(el)::value>(md_rhs, pack_rhs, pack_Ax, pack_diag, pack_xold,
+                                         pack_xnew, weight);
+    });
+    return TaskStatus::complete;
+  }
+
+  template <TopologicalElement te, class pack_t>
+  void JacobiElement(std::shared_ptr<MeshData<Real>> &md_rhs, const pack_t &pack_rhs,
+                     const pack_t &pack_Ax, const pack_t &pack_diag,
+                     const pack_t &pack_xold, const pack_t &pack_xnew, double weight) {
+    using namespace parthenon;
+    IndexRange ib = md_rhs->GetBoundsI(IndexDomain::interior, te);
+    IndexRange jb = md_rhs->GetBoundsJ(IndexDomain::interior, te);
+    IndexRange kb = md_rhs->GetBoundsK(IndexDomain::interior, te);
+
     const int scratch_size = 0;
     const int scratch_level = 0;
     parthenon::par_for_outer(
@@ -324,7 +336,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
                 });
           }
         });
-    return TaskStatus::complete;
   }
 
   std::string GetTimeLabel(const std::string &name, int level) {
@@ -558,7 +569,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
         communicate_to_coarse =
             restrictor_.template Restrict<FieldTL>(tl, communicate_to_coarse, md_u);
         communicate_to_coarse = tl.AddTask(
-            residual, TF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>), md_u);
+            communicate_to_coarse,
+            TF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>), md_u);
         communicate_to_coarse =
             restrictor_.template Restrict<FieldTL>(tl, communicate_to_coarse, md_res_err);
         communicate_to_coarse = tl.AddTask(

@@ -201,17 +201,18 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
       initialize =
           tl.AddTask(get_Ax, AddFieldsAndStore<FieldTL>, md_rhs, md_r, md_r, 1.0, -1.0);
     }
+    auto get_n = GlobalElementCount<FieldTL>(dependence, tl, &nelements, md_u);
     auto copy_p = tl.AddTask(initialize, TF(CopyData<FieldTL>), md_r, md_p);
     auto copy_rhat0 = tl.AddTask(initialize, TF(CopyData<FieldTL>), md_r, md_rhat0);
     auto get_rhs2_rhat0r_init = DoubleDotProduct<FieldTL>(
         initialize, tl, &res_rhat0r, md_r, md_rhat0, params_.volume_weight);
     initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
-        initialize | copy_p | copy_rhat0 | get_rhs2_rhat0r_init, "zero factors",
+        initialize | copy_p | copy_rhat0 | get_rhs2_rhat0r_init | get_n, "zero factors",
         [](BiCGSTABSolver *solver, Mesh *pm) {
           solver->iter_counter = -1;
           solver->rhs2 = solver->res_rhat0r.val[0];
-          solver->initial_residual = std::sqrt(solver->rhs2 / pm->GetTotalCells());
+          solver->initial_residual = std::sqrt(solver->rhs2 / solver->nelements.val);
           return TaskStatus::complete;
         },
         this, pmesh);
@@ -220,11 +221,11 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         [&](BiCGSTABSolver *solver, std::shared_ptr<Real> abs_res_tol,
             std::shared_ptr<Real> rel_res_tol, Mesh *pm) {
           if (Globals::my_rank == 0 && params_.print_per_step) {
-            Real res_tol = *rel_res_tol * std::sqrt(solver->rhs2 / pm->GetTotalCells());
+            Real res_tol = *rel_res_tol * std::sqrt(solver->rhs2 / solver->nelements.val);
             printf("# [0] v-cycle\n# [1] rms-residual (abs_tol = %e, rel_tol = %e) \n# "
                    "[2] rms-error\n",
                    *abs_res_tol, res_tol);
-            printf("0 %e\n", std::sqrt(solver->rhs2 / pm->GetTotalCells()));
+            printf("0 %e\n", std::sqrt(solver->rhs2 / solver->nelements.val));
           }
           return TaskStatus::complete;
         },
@@ -305,7 +306,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
       auto print = itl.AddTask(
           TaskQualifier::once_per_region, get_res,
           [&](BiCGSTABSolver *solver, Mesh *pmesh) {
-            Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+            Real rms_res = std::sqrt(solver->residual.val / solver->nelements.val);
             if (Globals::my_rank == 0 && solver->params_.print_per_step)
               printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
             return TaskStatus::complete;
@@ -375,7 +376,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     get_res2_rhat0r = itl.AddTask(
         TaskQualifier::once_per_region, get_res2_rhat0r,
         [&](BiCGSTABSolver *solver, Mesh *pmesh) {
-          Real rms_err = std::sqrt(solver->res_rhat0r.val[0] / pmesh->GetTotalCells());
+          Real rms_err = std::sqrt(solver->res_rhat0r.val[0] / solver->nelements.val);
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
             printf("%i %e\n", solver->iter_counter * 2 + 2, rms_err);
           return TaskStatus::complete;
@@ -402,10 +403,10 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         [partition](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter,
                     std::shared_ptr<Real> abs_res_tol,
                     std::shared_ptr<Real> rel_res_tol) {
-          Real rms_res = std::sqrt(solver->res_rhat0r.val[0] / pmesh->GetTotalCells());
+          Real rms_res = std::sqrt(solver->res_rhat0r.val[0] / solver->nelements.val);
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
-          Real rel_tol = *rel_res_tol * std::sqrt(solver->rhs2 / pmesh->GetTotalCells());
+          Real rel_tol = *rel_res_tol * std::sqrt(solver->rhs2 / solver->nelements.val);
           if ((rms_res < rel_tol) || (rms_res < *abs_res_tol) ||
               (solver->iter_counter >= max_iter)) {
             solver->final_residual = rms_res;
@@ -430,6 +431,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
   BiCGSTABParams params_;
   int iter_counter;
   AllReduce<Real> rhat0v, residual;
+  // Number of elements on which the solution lives, which normalizes rms residuals
+  AllReduce<Real> nelements;
   AllReduce<summable_array_t<Real, 2>> tt_ts, res_rhat0r;
   Real rhat0r_old, rhs2;
   equations_t eqs_;

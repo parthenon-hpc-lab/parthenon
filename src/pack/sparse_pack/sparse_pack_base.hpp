@@ -45,6 +45,9 @@ class SparsePackBase {
   using coords_t = ParArray1DRaw<ParArray0D<Coordinates_t>>;
 
   static constexpr int physical_bnd_flag = -2000;
+  // Index in block_props_ of the first of the 27 ownership flags, which follow the 27
+  // neighbor levels and the block gid
+  static constexpr int ownership_offset = 28;
 
   // Returns a SparsePackBase object that is either newly created or taken
   // from the cache in pmd. The cache itself handles the all of this logic

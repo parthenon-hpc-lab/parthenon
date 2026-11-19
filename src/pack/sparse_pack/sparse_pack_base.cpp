@@ -156,9 +156,11 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
   pack.bounds_ = bounds_t("bounds", 2, nblocks, nvar + 1);
   pack.bounds_h_ = Kokkos::create_mirror_view(pack.bounds_);
 
-  // This array stores refinement levels of current block and all neighboring blocks.
+  // This array stores refinement levels of current block and all neighboring blocks,
+  // followed by the gid of the block and its ownership of shared elements
   const Indexer3D bp_idxer({-1, 1}, {-1, 1}, {-1, 1});
-  pack.block_props_ = block_props_t("block_props", nblocks, bp_idxer.size() + 1);
+  pack.block_props_ =
+      block_props_t("block_props", nblocks, ownership_offset + bp_idxer.size());
   pack.block_props_h_ = Kokkos::create_mirror_view(pack.block_props_);
 
   pack.coords_ = coords_t(ViewOfViewAlloc("coords"), desc.flat ? max_size : nblocks);
@@ -230,6 +232,18 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
         if (pmb->IsPhysicalBoundary(outer_x3))
           pack.block_props_h_(blidx, bp_idxer.GetFlatIdx(1, oxb, oxa)) =
               physical_bnd_flag;
+      }
+    }
+
+    // Ownership of shared topological elements, which is only determined for blocks on
+    // the leaf grid. Default to owning everything elsewhere.
+    for (int ox3 = -1; ox3 <= 1; ++ox3) {
+      for (int ox2 = -1; ox2 <= 1; ++ox2) {
+        for (int ox1 = -1; ox1 <= 1; ++ox1) {
+          pack.block_props_h_(blidx,
+                              ownership_offset + bp_idxer.GetFlatIdx(ox3, ox2, ox1)) =
+              pmb->ownership.initialized ? pmb->ownership(ox1, ox2, ox3) : true;
+        }
       }
     }
 

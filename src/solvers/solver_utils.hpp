@@ -14,13 +14,17 @@
 #define SOLVERS_SOLVER_UTILS_HPP_
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "kokkos_abstraction.hpp"
+#include "mesh/meshblock.hpp"
 #include "utils/reductions.hpp"
 #include "utils/summable_array.hpp"
 
@@ -151,6 +155,97 @@ struct Stencil {
 
 namespace utils {
 
+// The vector operations below support fields of any single topological type. The type
+// is determined on the host and the kernels are selected at compile time, so that
+// cell-centered fields use the same kernels as before. Face, edge and node fields launch
+// one kernel per topological element and only count elements owned by a block in
+// reductions, so that shared elements on block boundaries are counted once.
+template <class desc_t>
+TopologicalType FieldsTopologicalType(MeshData<Real> *md, const desc_t &desc) {
+  const auto &pkgs = md->GetMeshPointer()->resolved_packages;
+  bool first = true;
+  TopologicalType tt = TopologicalType::Cell;
+  for (const auto &group : desc.var_groups) {
+    for (const auto &[vid, uid] : group) {
+      const TopologicalType tv = GetTopologicalType(pkgs->GetFieldMetadata(uid));
+      PARTHENON_REQUIRE(first || tv == tt,
+                        "Solver fields must all have the same topological type.");
+      tt = tv;
+      first = false;
+    }
+  }
+  return tt;
+}
+
+// Call f with std::integral_constant<TopologicalElement, el> for each element el of
+// topological type tt
+template <class F>
+void ForEachElement(TopologicalType tt, const F &f) {
+  using TE = TopologicalElement;
+  if (tt == TopologicalType::Cell) {
+    f(std::integral_constant<TE, TE::CC>());
+  } else if (tt == TopologicalType::Face) {
+    f(std::integral_constant<TE, TE::F1>());
+    f(std::integral_constant<TE, TE::F2>());
+    f(std::integral_constant<TE, TE::F3>());
+  } else if (tt == TopologicalType::Edge) {
+    f(std::integral_constant<TE, TE::E1>());
+    f(std::integral_constant<TE, TE::E2>());
+    f(std::integral_constant<TE, TE::E3>());
+  } else {
+    f(std::integral_constant<TE, TE::NN>());
+  }
+}
+
+// Element whose entire index range covers the full allocation of fields with elements
+// te, which is what the flat pointer loops below assume
+constexpr TopologicalElement FlatBoundsElement(TopologicalElement te) {
+  return te == TopologicalElement::CC ? TopologicalElement::CC : TopologicalElement::NN;
+}
+
+// Whether element (k, j, i) of type el, with interior bounds kb, jb, ib, is owned by
+// block b of the pack. Only valid on the leaf grid.
+template <TopologicalElement el, class pack_t>
+KOKKOS_FORCEINLINE_FUNCTION bool
+IsOwnedElement(const pack_t &pack, const int b, const IndexRange &kb,
+               const IndexRange &jb, const IndexRange &ib, const int k, const int j,
+               const int i) {
+  constexpr bool offi = TopologicalOffsetI(el);
+  constexpr bool offj = TopologicalOffsetJ(el);
+  constexpr bool offk = TopologicalOffsetK(el);
+  const int oi = offi ? (i == ib.e) - (i == ib.s) : 0;
+  const int oj = offj ? (j == jb.e) - (j == jb.s) : 0;
+  const int ok = offk ? (k == kb.e) - (k == kb.s) : 0;
+  return pack.IsOwned(b, ok, oj, oi);
+}
+
+// Number of interior elements of type el on a block that the block owns, so that the sum
+// over the blocks of the leaf grid counts every element once
+inline std::int64_t OwnedElementCount(MeshBlock *pmb, TopologicalElement el) {
+  const auto &cb = pmb->cellbounds;
+  auto counts = [](const IndexRange &r, bool offset) -> std::array<std::int64_t, 3> {
+    const std::int64_t n = r.e - r.s + 1;
+    if (!offset || n == 1) return {0, n, 0};
+    return {1, n - 2, 1};
+  };
+  const auto ni =
+      counts(cb.GetBoundsI(IndexDomain::interior, el), TopologicalOffsetI(el));
+  const auto nj =
+      counts(cb.GetBoundsJ(IndexDomain::interior, el), TopologicalOffsetJ(el));
+  const auto nk =
+      counts(cb.GetBoundsK(IndexDomain::interior, el), TopologicalOffsetK(el));
+  std::int64_t n = 0;
+  for (int oi = -1; oi <= 1; ++oi) {
+    for (int oj = -1; oj <= 1; ++oj) {
+      for (int ok = -1; ok <= 1; ++ok) {
+        const bool owned = !pmb->ownership.initialized || pmb->ownership(oi, oj, ok);
+        if (owned) n += ni[oi + 1] * nj[oj + 1] * nk[ok + 1];
+      }
+    }
+  }
+  return n;
+}
+
 namespace between_fields {
 template <class in_t, class out_t, bool only_fine_on_composite = true>
 TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
@@ -183,18 +278,14 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
 }
 } // namespace between_fields
 
-template <class TL, bool only_fine_on_composite = true>
-TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md_in,
-                    const std::shared_ptr<MeshData<Real>> &md_out) {
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md_in->GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = md_in->GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = md_in->GetBoundsK(IndexDomain::entire, te);
+template <TopologicalElement te, class pack_t>
+void CopyDataElement(const std::shared_ptr<MeshData<Real>> &md_in, const pack_t &pack_in,
+                     const pack_t &pack_out) {
+  constexpr TopologicalElement tb = FlatBoundsElement(te);
+  IndexRange ib = md_in->GetBoundsI(IndexDomain::entire, tb);
+  IndexRange jb = md_in->GetBoundsJ(IndexDomain::entire, tb);
+  IndexRange kb = md_in->GetBoundsK(IndexDomain::entire, tb);
 
-  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_in.get());
-  auto pack_in = desc.GetPack(md_in.get(), only_fine_on_composite);
-  auto pack_out = desc.GetPack(md_out.get(), only_fine_on_composite);
   const int scratch_size = 0;
   const int scratch_level = 0;
   // Warning: This inner loop strategy only works because we are using IndexDomain::entire
@@ -212,22 +303,23 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md_in,
                                    [&](const int idx) { out[idx] = in[idx]; });
         }
       });
-  return TaskStatus::complete;
 }
 
 template <class TL, bool only_fine_on_composite = true>
-TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
-  int nblocks = md->NumBlocks();
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  static auto desc = [&] {
-    if constexpr (isTypeList<TL>::value) {
-      return parthenon::MakePackDescriptorFromTypeList<TL>(md.get());
-    } else {
-      return parthenon::MakePackDescriptor<TL>(md.get());
-    }
-  }();
-  auto pack = desc.GetPack(md.get(), only_fine_on_composite);
+TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md_in,
+                    const std::shared_ptr<MeshData<Real>> &md_out) {
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_in.get());
+  static const auto tt = FieldsTopologicalType(md_in.get(), desc);
+  auto pack_in = desc.GetPack(md_in.get(), only_fine_on_composite);
+  auto pack_out = desc.GetPack(md_out.get(), only_fine_on_composite);
+  ForEachElement(tt, [&](auto el) {
+    CopyDataElement<decltype(el)::value>(md_in, pack_in, pack_out);
+  });
+  return TaskStatus::complete;
+}
+
+template <TopologicalElement te, class pack_t>
+void SetToZeroElement(const pack_t &pack) {
   const std::size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;
@@ -247,6 +339,20 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
               [&](int k, int j, int i) { pack(b, te, c, k, j, i) = 0.0; });
         }
       });
+}
+
+template <class TL, bool only_fine_on_composite = true>
+TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
+  static auto desc = [&] {
+    if constexpr (isTypeList<TL>::value) {
+      return parthenon::MakePackDescriptorFromTypeList<TL>(md.get());
+    } else {
+      return parthenon::MakePackDescriptor<TL>(md.get());
+    }
+  }();
+  static const auto tt = FieldsTopologicalType(md.get(), desc);
+  auto pack = desc.GetPack(md.get(), only_fine_on_composite);
+  ForEachElement(tt, [&](auto el) { SetToZeroElement<decltype(el)::value>(pack); });
   return TaskStatus::complete;
 }
 
@@ -304,31 +410,15 @@ TaskStatus AddFieldsAndStore(const std::shared_ptr<MeshData<Real>> &md, Real wa 
 }
 } // namespace between_fields
 
-template <class TL, bool only_fine_on_composite = true>
-TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md_a,
-                                           const std::shared_ptr<MeshData<Real>> &md_b,
-                                           const std::shared_ptr<MeshData<Real>> &md_out,
-                                           Real wa = 1.0, Real wb = 1.0,
-                                           bool only_interior_blocks = false) {
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md_a->GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = md_a->GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = md_a->GetBoundsK(IndexDomain::entire, te);
+template <TopologicalElement te, class pack_t>
+void AddFieldsAndStoreElement(const std::shared_ptr<MeshData<Real>> &md_a,
+                              const pack_t &pack_a, const pack_t &pack_b,
+                              const pack_t &pack_out, Real wa, Real wb) {
+  constexpr TopologicalElement tb = FlatBoundsElement(te);
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::entire, tb);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::entire, tb);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::entire, tb);
 
-  int nblocks = md_a->NumBlocks();
-  std::vector<bool> include_block(nblocks, true);
-  if (only_interior_blocks && (md_a->grid.type() == GridType::two_level_composite)) {
-    for (int b = 0; b < nblocks; ++b) {
-      auto pmb = md_a->GetBlockData(b)->GetBlockPointer();
-      include_block[b] = !pmb->IsLeafLL() || (pmb->block_coarsenings != 0);
-    }
-  }
-
-  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
-  auto pack_a = desc.GetPack(md_a.get(), include_block, only_fine_on_composite);
-  auto pack_b = desc.GetPack(md_b.get(), include_block, only_fine_on_composite);
-  auto pack_out = desc.GetPack(md_out.get(), include_block, only_fine_on_composite);
   const int scratch_size = 0;
   const int scratch_level = 0;
   // Warning: This inner loop strategy only works because we are using IndexDomain::entire
@@ -347,6 +437,31 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
               [&](const int idx) { out[idx] = wa * avar[idx] + wb * bvar[idx]; });
         }
       });
+}
+
+template <class TL, bool only_fine_on_composite = true>
+TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>> &md_a,
+                                           const std::shared_ptr<MeshData<Real>> &md_b,
+                                           const std::shared_ptr<MeshData<Real>> &md_out,
+                                           Real wa = 1.0, Real wb = 1.0,
+                                           bool only_interior_blocks = false) {
+  int nblocks = md_a->NumBlocks();
+  std::vector<bool> include_block(nblocks, true);
+  if (only_interior_blocks && (md_a->grid.type() == GridType::two_level_composite)) {
+    for (int b = 0; b < nblocks; ++b) {
+      auto pmb = md_a->GetBlockData(b)->GetBlockPointer();
+      include_block[b] = !pmb->IsLeafLL() || (pmb->block_coarsenings != 0);
+    }
+  }
+
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
+  static const auto tt = FieldsTopologicalType(md_a.get(), desc);
+  auto pack_a = desc.GetPack(md_a.get(), include_block, only_fine_on_composite);
+  auto pack_b = desc.GetPack(md_b.get(), include_block, only_fine_on_composite);
+  auto pack_out = desc.GetPack(md_out.get(), include_block, only_fine_on_composite);
+  ForEachElement(tt, [&](auto el) {
+    AddFieldsAndStoreElement<decltype(el)::value>(md_a, pack_a, pack_b, pack_out, wa, wb);
+  });
   return TaskStatus::complete;
 }
 
@@ -382,26 +497,36 @@ TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md) {
 }
 } // namespace between_fields
 
-template <class TL>
-TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md_a,
-                       const std::shared_ptr<MeshData<Real>> &md_b,
-                       const std::shared_ptr<MeshData<Real>> &md_out) {
-  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior);
+template <TopologicalElement te, class pack_t>
+void ADividedByBElement(const std::shared_ptr<MeshData<Real>> &md_a, const pack_t &pack_a,
+                        const pack_t &pack_b, const pack_t &pack_out) {
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, te);
 
-  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
-  auto pack_a = desc.GetPack(md_a.get());
-  auto pack_b = desc.GetPack(md_b.get());
-  auto pack_out = desc.GetPack(md_out.get());
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "DotProduct", DevExecSpace(), 0, pack_a.GetNBlocks() - 1,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
         for (int c = 0; c < nvars; ++c)
-          pack_out(b, c, k, j, i) = pack_a(b, c, k, j, i) / pack_b(b, c, k, j, i);
+          pack_out(b, te, c, k, j, i) =
+              pack_a(b, te, c, k, j, i) / pack_b(b, te, c, k, j, i);
       });
+}
+
+template <class TL>
+TaskStatus ADividedByB(const std::shared_ptr<MeshData<Real>> &md_a,
+                       const std::shared_ptr<MeshData<Real>> &md_b,
+                       const std::shared_ptr<MeshData<Real>> &md_out) {
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
+  static const auto tt = FieldsTopologicalType(md_a.get(), desc);
+  auto pack_a = desc.GetPack(md_a.get());
+  auto pack_b = desc.GetPack(md_b.get());
+  auto pack_out = desc.GetPack(md_out.get());
+  ForEachElement(tt, [&](auto el) {
+    ADividedByBElement<decltype(el)::value>(md_a, pack_a, pack_b, pack_out);
+  });
   return TaskStatus::complete;
 }
 
@@ -456,17 +581,12 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
 }
 } // namespace between_fields
 
-template <class a_t>
-TaskStatus GlobalMinLocal(const std::shared_ptr<MeshData<Real>> &md,
-                          AllReduce<Real> *amin) {
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
+template <TopologicalElement te, class a_t, class pack_t>
+Real GlobalMinElement(const std::shared_ptr<MeshData<Real>> &md, const pack_t &pack) {
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
 
-  static auto desc = parthenon::MakePackDescriptor<a_t>(md.get());
-  auto pack = desc.GetPack(md.get());
   Real gmin(0);
   parthenon::par_reduce(
       parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
@@ -480,7 +600,19 @@ TaskStatus GlobalMinLocal(const std::shared_ptr<MeshData<Real>> &md,
           lmin = std::min(lmin, pack(b, te, a_t(c), k, j, i));
       },
       Kokkos::Min<Real>(gmin));
-  amin->val = std::min(gmin, amin->val);
+  return gmin;
+}
+
+template <class a_t>
+TaskStatus GlobalMinLocal(const std::shared_ptr<MeshData<Real>> &md,
+                          AllReduce<Real> *amin) {
+  static auto desc = parthenon::MakePackDescriptor<a_t>(md.get());
+  static const auto tt = FieldsTopologicalType(md.get(), desc);
+  auto pack = desc.GetPack(md.get());
+  ForEachElement(tt, [&](auto el) {
+    const Real gmin = GlobalMinElement<decltype(el)::value, a_t>(md, pack);
+    amin->val = std::min(gmin, amin->val);
+  });
   return TaskStatus::complete;
 }
 
@@ -503,19 +635,13 @@ TaskID GlobalMin(TaskID dependency_in, TaskList &tl, AllReduce<Real> *amin,
                     start_global_amin, &AllReduce<Real>::CheckReduce, amin);
 }
 
-template <class TL, bool VolumeWeight = false>
-TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
-                           const std::shared_ptr<MeshData<Real>> &md_b,
-                           AllReduce<Real> *adotb) {
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
+template <TopologicalElement te, bool VolumeWeight, class pack_t>
+Real DotProductElement(const std::shared_ptr<MeshData<Real>> &md_a, const pack_t &pack_a,
+                       const pack_t &pack_b) {
   IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, te);
   IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, te);
 
-  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
-  auto pack_a = desc.GetPack(md_a.get());
-  auto pack_b = desc.GetPack(md_b.get());
   Real gsum(0);
   const int nvars = pack_a.GetUpperBoundHost(0) - pack_a.GetLowerBoundHost(0) + 1;
   parthenon::par_reduce(
@@ -523,17 +649,40 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
       pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
                     Real &lsum) {
+        if constexpr (te != TopologicalElement::CC) {
+          if (!IsOwnedElement<te>(pack_a, b, kb, jb, ib, k, j, i)) return;
+        }
         const Real var_a = pack_a(b, te, c, k, j, i);
         const Real var_b = pack_b(b, te, c, k, j, i);
         if constexpr (VolumeWeight) {
-          const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
+          const auto vol = [&] {
+            if constexpr (te == TopologicalElement::CC) {
+              return pack_a.GetCoordinates(b).CellVolume(k, j, i);
+            } else {
+              return pack_a.GetCoordinates(b).template Volume<te>(k, j, i);
+            }
+          }();
           lsum += var_a * var_b * vol * vol;
         } else {
           lsum += var_a * var_b;
         }
       },
       Kokkos::Sum<Real>(gsum));
-  adotb->val += gsum;
+  return gsum;
+}
+
+template <class TL, bool VolumeWeight = false>
+TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
+                           const std::shared_ptr<MeshData<Real>> &md_b,
+                           AllReduce<Real> *adotb) {
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
+  static const auto tt = FieldsTopologicalType(md_a.get(), desc);
+  auto pack_a = desc.GetPack(md_a.get());
+  auto pack_b = desc.GetPack(md_b.get());
+  ForEachElement(tt, [&](auto el) {
+    adotb->val +=
+        DotProductElement<decltype(el)::value, VolumeWeight>(md_a, pack_a, pack_b);
+  });
   return TaskStatus::complete;
 }
 
@@ -566,18 +715,14 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
   return finish_global_adotb;
 }
 
-template <class TL, bool VolumeWeight = false>
-TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
-                                 const std::shared_ptr<MeshData<Real>> &md_b,
-                                 AllReduce<summable_array_t<Real, 2>> *adotb) {
-  using TE = parthenon::TopologicalElement;
-  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior);
+template <TopologicalElement te, bool VolumeWeight, class pack_t>
+summable_array_t<Real, 2>
+DoubleDotProductElement(const std::shared_ptr<MeshData<Real>> &md_a, const pack_t &pack_a,
+                        const pack_t &pack_b) {
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, te);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, te);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, te);
 
-  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
-  auto pack_a = desc.GetPack(md_a.get());
-  auto pack_b = desc.GetPack(md_b.get());
   summable_array_t<Real, 2> gsum;
   const int nvars = pack_a.GetUpperBoundHost(0) - pack_a.GetLowerBoundHost(0) + 1;
   parthenon::par_reduce(
@@ -585,10 +730,19 @@ TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
       pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
                     summable_array_t<Real, 2> &lsum) {
-        const Real var_a = pack_a(b, c, k, j, i);
-        const Real var_b = pack_b(b, c, k, j, i);
+        if constexpr (te != TopologicalElement::CC) {
+          if (!IsOwnedElement<te>(pack_a, b, kb, jb, ib, k, j, i)) return;
+        }
+        const Real var_a = pack_a(b, te, c, k, j, i);
+        const Real var_b = pack_b(b, te, c, k, j, i);
         if constexpr (VolumeWeight) {
-          const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
+          const auto vol = [&] {
+            if constexpr (te == TopologicalElement::CC) {
+              return pack_a.GetCoordinates(b).CellVolume(k, j, i);
+            } else {
+              return pack_a.GetCoordinates(b).template Volume<te>(k, j, i);
+            }
+          }();
           lsum[0] += var_a * var_a * vol * vol;
           lsum[1] += var_a * var_b * vol * vol;
         } else {
@@ -597,7 +751,21 @@ TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
         }
       },
       Kokkos::Sum<summable_array_t<Real, 2>>(gsum));
-  adotb->val += gsum;
+  return gsum;
+}
+
+template <class TL, bool VolumeWeight = false>
+TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
+                                 const std::shared_ptr<MeshData<Real>> &md_b,
+                                 AllReduce<summable_array_t<Real, 2>> *adotb) {
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
+  static const auto tt = FieldsTopologicalType(md_a.get(), desc);
+  auto pack_a = desc.GetPack(md_a.get());
+  auto pack_b = desc.GetPack(md_b.get());
+  ForEachElement(tt, [&](auto el) {
+    adotb->val +=
+        DoubleDotProductElement<decltype(el)::value, VolumeWeight>(md_a, pack_a, pack_b);
+  });
   return TaskStatus::complete;
 }
 
@@ -631,6 +799,53 @@ TaskID DoubleDotProduct(TaskID dependency_in, TaskList &tl,
       tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
                  start_global_adotb, &AllReduce<value_t>::CheckReduce, adotb);
   return finish_global_adotb;
+}
+
+template <class TL>
+TaskStatus OwnedElementCountLocal(const std::shared_ptr<MeshData<Real>> &md,
+                                  AllReduce<Real> *n) {
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md.get());
+  static const auto tt = FieldsTopologicalType(md.get(), desc);
+  std::int64_t nloc = 0;
+  for (int b = 0; b < md->NumBlocks(); ++b) {
+    auto pmb = md->GetBlockData(b)->GetBlockPointer();
+    for (const auto el : GetTopologicalElements(tt))
+      nloc += OwnedElementCount(pmb, el);
+  }
+  n->val += static_cast<Real>(nloc);
+  return TaskStatus::complete;
+}
+
+// Global number of mesh elements on which the fields in TL live, used to normalize rms
+// residuals. This is the total number of cells for cell-centered fields, and otherwise
+// counts each shared face, edge or node once. md should be on the leaf grid.
+template <class TL>
+TaskID GlobalElementCount(TaskID dependency_in, TaskList &tl, AllReduce<Real> *n,
+                          const std::shared_ptr<MeshData<Real>> &md) {
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md.get());
+  static const auto tt = FieldsTopologicalType(md.get(), desc);
+  if (tt == TopologicalType::Cell) {
+    return tl.AddTask(
+        TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
+        [](AllReduce<Real> *r, Mesh *pmesh) {
+          r->val = pmesh->GetTotalCells();
+          return TaskStatus::complete;
+        },
+        n, md->GetMeshPointer());
+  }
+  auto zero_n = tl.AddTask(
+      TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
+      [](AllReduce<Real> *r) {
+        r->val = 0.0;
+        return TaskStatus::complete;
+      },
+      n);
+  auto get_n =
+      tl.AddTask(TaskQualifier::local_sync, zero_n, OwnedElementCountLocal<TL>, md, n);
+  auto start_global_n = tl.AddTask(TaskQualifier::once_per_region, get_n,
+                                   &AllReduce<Real>::StartReduce, n, MPI_SUM);
+  return tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
+                    start_global_n, &AllReduce<Real>::CheckReduce, n);
 }
 
 } // namespace utils

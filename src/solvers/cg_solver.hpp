@@ -137,12 +137,13 @@ class CGSolver : public SolverBase, CGSolverCounter {
     auto zero_x = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_x);
     auto zero_p = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_p);
     auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
+    auto get_n = GlobalElementCount<FieldTL>(dependence, tl, &nelements, md_u);
     auto get_rhs2 = none;
     if (params_.relative_residual || params_.print_per_step)
       get_rhs2 = DotProduct<FieldTL>(dependence, tl, &rhs2, md_rhs, md_rhs);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
-        zero_u | zero_v | zero_x | zero_p | copy_r | get_rhs2, "zero factors",
+        zero_u | zero_v | zero_x | zero_p | copy_r | get_rhs2 | get_n, "zero factors",
         [](CGSolver *solver) {
           solver->iter_counter = -1;
           solver->ru.val = std::numeric_limits<Real>::max();
@@ -155,12 +156,13 @@ class CGSolver : public SolverBase, CGSolverCounter {
           TaskQualifier::once_per_region, initialize, "print to screen",
           [&](CGSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
               Mesh *pm) {
-            Real tol = relative_residual
-                           ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
-                           : *res_tol;
+            Real tol =
+                relative_residual
+                    ? *res_tol * std::sqrt(solver->rhs2.val / solver->nelements.val)
+                    : *res_tol;
             printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
                    tol);
-            printf("\t0 %e\n", std::sqrt(solver->rhs2.val / pm->GetTotalCells()));
+            printf("\t0 %e\n", std::sqrt(solver->rhs2.val / solver->nelements.val));
             return TaskStatus::complete;
           },
           this, params_.residual_tolerance, params_.relative_residual, pmesh);
@@ -238,7 +240,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
     auto print = itl.AddTask(
         TaskQualifier::once_per_region, get_res,
         [&](CGSolver *solver, Mesh *pmesh) {
-          Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+          Real rms_res = std::sqrt(solver->residual.val / solver->nelements.val);
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
             printf("\t%i %e\n", solver->iter_counter + 1, rms_res);
           return TaskStatus::complete;
@@ -249,11 +251,11 @@ class CGSolver : public SolverBase, CGSolverCounter {
         TaskQualifier::completion, get_res | correct_x, "completion",
         [](CGSolver *solver, Mesh *pmesh, int max_iter, std::shared_ptr<Real> res_tol,
            bool relative_residual) {
-          Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+          Real rms_res = std::sqrt(solver->residual.val / solver->nelements.val);
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
           Real tol = relative_residual
-                         ? *res_tol * std::sqrt(solver->rhs2.val / pmesh->GetTotalCells())
+                         ? *res_tol * std::sqrt(solver->rhs2.val / solver->nelements.val)
                          : *res_tol;
           if (rms_res < tol || solver->iter_counter >= max_iter) {
             solver->final_residual = rms_res;
@@ -278,6 +280,8 @@ class CGSolver : public SolverBase, CGSolverCounter {
   CGParams params_;
   int iter_counter;
   AllReduce<Real> ru, pAp, residual, rhs2;
+  // Number of elements on which the solution lives, which normalizes rms residuals
+  AllReduce<Real> nelements;
   Real ru_old;
   equations_t eqs_;
 };
