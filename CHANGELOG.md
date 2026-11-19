@@ -11,6 +11,7 @@
 - [[PR 1446]](https://github.com/parthenon-hpc-lab/parthenon/pull/1446) Die on repeatedly receiving SIGINT
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR XXXX]](https://github.com/parthenon-hpc-lab/parthenon/pull/XXXX) Make Toth & Roe internal prolongation divergence free for non-cubic cells and curvilinear coordinates
 - [[PR 1445]](https://github.com/parthenon-hpc-lab/parthenon/pull/1445) Fix ownership for self-bordering blocks
 - [[PR 1487]](https://github.com/parthenon-hpc-lab/parthenon/pull/1487) Checkout submodules once for doc build
 
