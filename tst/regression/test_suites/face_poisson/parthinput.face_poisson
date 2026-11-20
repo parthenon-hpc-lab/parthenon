@@ -46,6 +46,7 @@ solver = MG # or CG, BiCGSTAB
 alpha = 1.0
 internal_prolongation = Average # or TothAndRoe
 restriction = FullWeighting # or MetadataDefault
+rhs = A_exact # or exact
 
 <face_poisson/solver_params>
 max_iterations = 40

@@ -15,7 +15,9 @@
 // Solves (1 - alpha Laplacian) u = rhs for a face centered vector field u with the
 // linear solvers, where rhs = A.u_exact for a chosen u_exact. This exercises the solver
 // vector operations on face fields, including counting faces shared between blocks once
-// in dot products and residual norms.
+// in dot products and residual norms. With face_poisson/rhs = exact, rhs = u_exact
+// instead, which is not of the form A.u on non-owned shared faces, so the solution is
+// not known but the solvers must still converge.
 
 #include <cmath>
 #include <memory>
@@ -77,6 +79,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::string solver = pin->GetOrAddString("face_poisson", "solver", "MG");
   pkg->AddParam<>("solver", solver);
+  const std::string rhs =
+      pin->GetOrAddString("face_poisson", "rhs", "A_exact", {"A_exact", "exact"});
+  pkg->AddParam<>("rhs_is_exact", rhs == "exact");
 
   FaceEq eq(pin, "face_poisson");
   pkg->AddParam<>("equation", eq, Params::Mutability::Mutable);
@@ -191,11 +196,16 @@ class FacePoissonDriver : public Driver {
       auto &md_u = pmesh->mesh_data.Add("u", md, {u::name()});
       auto &md_rhs = pmesh->mesh_data.Add("rhs", md, {u::name()});
 
-      // Set rhs = A.u_exact
-      auto copy_u = tl.AddTask(none, TF(solvers::utils::CopyData<TL>), md, md_u);
-      auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_u, tl, md_u,
-                                                              pmesh->multilevel);
-      auto get_rhs = eq->Ax(tl, comm, md, md_u, md_rhs);
+      // Set rhs = A.u_exact, or rhs = u_exact
+      TaskID get_rhs;
+      if (pkg->Param<bool>("rhs_is_exact")) {
+        get_rhs = tl.AddTask(none, TF(solvers::utils::CopyData<TL>), md, md_rhs);
+      } else {
+        auto copy_u = tl.AddTask(none, TF(solvers::utils::CopyData<TL>), md, md_u);
+        auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_u, tl, md_u,
+                                                                pmesh->multilevel);
+        get_rhs = eq->Ax(tl, comm, md, md_u, md_rhs);
+      }
 
       // Solve A.u = rhs from u = 0
       auto zero_u = tl.AddTask(get_rhs, TF(solvers::utils::SetToZero<TL>), md_u);

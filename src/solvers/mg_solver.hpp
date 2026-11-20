@@ -228,6 +228,27 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
     const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
 
+    // Shared faces, edges and nodes of the rhs that a block does not own are not part of
+    // the solver vectors (e.g. a coarse face covered by a finer neighbor), but the
+    // smoother reads them. Fill them from their owners so that the V-cycle is a linear
+    // function of the owned rhs values. Cell-centered fields have no shared elements.
+    // TODO: only the shared elements need to be communicated, as in flux correction,
+    // rather than a full boundary exchange.
+    auto partitions = pmesh->GetDefaultBlockPartitions();
+    if (default_partition_idx < partitions.size()) {
+      auto &md_rhs = pmesh->mesh_data.Add(container_rhs,
+                                          partitions[default_partition_idx], sol_fields);
+      static auto desc = parthenon::MakePackDescriptorFromTypeList<FieldTL>(md_rhs.get());
+      static const auto tt = FieldsTopologicalType(md_rhs.get(), desc);
+      if (tt != TopologicalType::Cell) {
+        dependence = AddBoundaryExchangeTasks<BoundaryType::any>(
+            dependence, tl, md_rhs, pmesh->multilevel,
+            [](TaskID id, TaskList *, std::shared_ptr<MeshData<Real>>, bool) {
+              return id;
+            });
+      }
+    }
+
     // We require a local pre- and post-MG sync since multigrid iterations require
     // communication across blocks and partitions on the multigrid levels do not
     // necessarily contain the same blocks as partitions on the leaf grid. This

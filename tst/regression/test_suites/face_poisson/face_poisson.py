@@ -94,6 +94,18 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "max_iterations": 22,
                 "owned_faces": 76992,
             },
+            {
+                # rhs = u_exact on non-owned faces covered by a finer neighbor is not
+                # consistent with the owned faces, which must not stall the solver. The
+                # solution is not known, so the error is not checked.
+                "name": "MG-BiCGSTAB, AMR, no base block coarsening, rhs = u_exact",
+                "args": ["face_poisson/solver=BiCGSTAB", "face_poisson/rhs=exact"]
+                + _AMR[:-1]
+                + ["parthenon/mesh/base_block_coarsenings=0"],
+                "max_iterations": 22,
+                "owned_faces": 76992,
+                "max_final_error": float("inf"),
+            },
         ]
         for case in self.cases:
             case.setdefault("max_final_error", 1.0e-10)
