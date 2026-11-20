@@ -197,8 +197,14 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
               : (X1 ? IndexDomain::outer_x1
                     : (X2 ? IndexDomain::outer_x2 : IndexDomain::outer_x3));
 
+    // Elements offset from the zone centers along DIR (e.g. F1 faces for X1DIR) have
+    // their outermost interior element, ref, on the boundary itself. Ghosts of these are
+    // reflected about ref rather than about the boundary between ref and the first ghost.
+    const bool on_boundary = X1 ? TopologicalOffsetI(el)
+                                : (X2 ? TopologicalOffsetJ(el) : TopologicalOffsetK(el));
+
     // used for reflections
-    const int offset = 2 * ref + (INNER ? -1 : 1);
+    const int offset = 2 * ref + (on_boundary ? 0 : (INNER ? -1 : 1));
 
     // used for derivatives
     const int offsetin = INNER;
@@ -236,6 +242,26 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
             q(b, el, l, k, j, i) = q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
           }
         });
+
+    // Set elements on the boundary that the boundary condition determines, i.e. the
+    // value of FixedFace and the vanishing reflected vector component
+    if (on_boundary && (TYPE == BCType::Reflect || TYPE == BCType::FixedFace)) {
+      const auto ib =
+          X1 ? IndexRange{ref, ref} : bounds.GetBoundsI(IndexDomain::entire, el);
+      const auto jb =
+          X2 ? IndexRange{ref, ref} : bounds.GetBoundsJ(IndexDomain::entire, el);
+      const auto kb =
+          X3 ? IndexRange{ref, ref} : bounds.GetBoundsK(IndexDomain::entire, el);
+      pmb->par_for(
+          PARTHENON_AUTO_LABEL, nb, kb, jb, ib,
+          KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+            if (TYPE == BCType::FixedFace) {
+              q(b, el, l, k, j, i) = val;
+            } else if (q(b, el, l).vector_component == DIR) {
+              q(b, el, l, k, j, i) = 0.0;
+            }
+          });
+    }
   }
 }
 

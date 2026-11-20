@@ -47,6 +47,7 @@ alpha = 1.0
 internal_prolongation = Average # or TothAndRoe
 restriction = FullWeighting # or MetadataDefault
 rhs = A_exact # or exact
+boundary = periodic # or dirichlet, with outflow mesh boundaries
 
 <face_poisson/solver_params>
 max_iterations = 40

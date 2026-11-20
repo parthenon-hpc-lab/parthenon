@@ -17,13 +17,16 @@
 // vector operations on face fields, including counting faces shared between blocks once
 // in dot products and residual norms. With face_poisson/rhs = exact, rhs = u_exact
 // instead, which is not of the form A.u on non-owned shared faces, so the solution is
-// not known but the solvers must still converge.
+// not known but the solvers must still converge. With face_poisson/boundary =
+// dirichlet, u vanishes on physical boundaries (FixedFace), which should be outflow in
+// the input file.
 
 #include <cmath>
 #include <memory>
 #include <string>
 #include <utility>
 
+#include <bvals/boundary_conditions_generic.hpp>
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/bicgstab_solver.hpp>
@@ -55,6 +58,14 @@ struct exact : public variable_names::base_t<false> {
 
 using FaceEq = FacePoissonEquation<u>;
 
+template <CoordinateDirection DIR, BoundaryFunction::BCSide SIDE>
+auto GetBC() {
+  return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
+    using namespace BoundaryFunction;
+    GenericBC<DIR, SIDE, BCType::FixedFace, u>(rc, coarse, 0.0);
+  };
+}
+
 template <class restrictor_t>
 std::shared_ptr<solvers::SolverBase> MakeSolver(const std::string &solver,
                                                 ParameterInput *pin, const FaceEq &eq) {
@@ -85,6 +96,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   FaceEq eq(pin, "face_poisson");
   pkg->AddParam<>("equation", eq, Params::Mutability::Mutable);
+  pkg->AddParam<>("dirichlet", eq.dirichlet);
+  if (eq.dirichlet) {
+    using BF = BoundaryFace;
+    using BoundaryFunction::BCSide;
+    pkg->UserBoundaryFunctions[BF::inner_x1].push_back(GetBC<X1DIR, BCSide::Inner>());
+    pkg->UserBoundaryFunctions[BF::inner_x2].push_back(GetBC<X2DIR, BCSide::Inner>());
+    pkg->UserBoundaryFunctions[BF::inner_x3].push_back(GetBC<X3DIR, BCSide::Inner>());
+    pkg->UserBoundaryFunctions[BF::outer_x1].push_back(GetBC<X1DIR, BCSide::Outer>());
+    pkg->UserBoundaryFunctions[BF::outer_x2].push_back(GetBC<X2DIR, BCSide::Outer>());
+    pkg->UserBoundaryFunctions[BF::outer_x3].push_back(GetBC<X3DIR, BCSide::Outer>());
+  }
 
   // Multigrid restriction, either full weighting or the restriction operator registered
   // in the field metadata
@@ -119,9 +141,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return pkg;
 }
 
-// Set u = u_exact, a smooth periodic field on [-1, 1]^ndim with different components
+// Set u = u_exact, a smooth field on [-1, 1]^ndim with different components that is
+// periodic, or vanishes on the boundary if dirichlet
 template <TopologicalElement te, class pack_t>
-void SetExactElement(MeshData<Real> *md, const pack_t &pack, const Real phase) {
+void SetExactElement(MeshData<Real> *md, const pack_t &pack, const Real phase,
+                     const bool dirichlet) {
   const int ndim = md->GetMeshPointer()->ndim;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
@@ -133,9 +157,16 @@ void SetExactElement(MeshData<Real> *md, const pack_t &pack, const Real phase) {
         const Real x = coords.template X<1, te>(k, j, i);
         const Real y = coords.template X<2, te>(k, j, i);
         const Real z = coords.template X<3, te>(k, j, i);
-        Real val = std::sin(M_PI * x + phase);
-        if (ndim > 1) val *= std::cos(M_PI * y + 2.0 * phase) + 0.5;
-        if (ndim > 2) val *= std::sin(2.0 * M_PI * z + 3.0 * phase) + 2.0;
+        Real val;
+        if (dirichlet) {
+          val = std::sin(M_PI * x) * (1.0 + 0.5 * std::sin(phase * x));
+          if (ndim > 1) val *= std::sin(M_PI * y) * (1.0 + 0.5 * std::cos(phase * y));
+          if (ndim > 2) val *= std::sin(M_PI * z);
+        } else {
+          val = std::sin(M_PI * x + phase);
+          if (ndim > 1) val *= std::cos(M_PI * y + 2.0 * phase) + 0.5;
+          if (ndim > 2) val *= std::sin(2.0 * M_PI * z + 3.0 * phase) + 2.0;
+        }
         pack(b, te, exact(), k, j, i) = val;
         pack(b, te, u(), k, j, i) = val;
       });
@@ -145,9 +176,11 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   auto desc = MakePackDescriptor<u, exact>(md);
   auto pack = desc.GetPack(md);
   using TE = TopologicalElement;
-  SetExactElement<TE::F1>(md, pack, 0.3);
-  SetExactElement<TE::F2>(md, pack, 1.1);
-  SetExactElement<TE::F3>(md, pack, 2.0);
+  const bool dirichlet =
+      pm->packages.Get("face_poisson")->template Param<bool>("dirichlet");
+  SetExactElement<TE::F1>(md, pack, 0.3, dirichlet);
+  SetExactElement<TE::F2>(md, pack, 1.1, dirichlet);
+  SetExactElement<TE::F3>(md, pack, 2.0, dirichlet);
 }
 
 // Store exact - u in exact on the interior faces

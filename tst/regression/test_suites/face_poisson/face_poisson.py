@@ -48,11 +48,17 @@ _AMR = [
     "parthenon/mesh/base_block_coarsenings=1",
 ]
 
+# u = 0 on the boundary, held by FixedFace on the faces normal to it
+_DIRICHLET = ["face_poisson/boundary=dirichlet"] + [
+    f"parthenon/mesh/{side}x{d}_bc=outflow" for d in (1, 2) for side in ("i", "o")
+]
+
 
 class TestCase(utils.test_case.TestCaseAbs):
     def __init__(self):
         # Each case checks the final error, the iteration count, and the number of owned
-        # faces, which is 3 N for N cells on a periodic uniform grid. The iteration counts
+        # faces, which is 3 N for N cells on a periodic uniform grid (plus the faces on
+        # the upper boundaries otherwise). The iteration counts
         # of the 64^2 and 128^2 cases should be the same.
         #
         # The first input should also be the default --driver_input passed from
@@ -105,6 +111,18 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "max_iterations": 22,
                 "owned_faces": 76992,
                 "max_final_error": float("inf"),
+            },
+            {
+                "name": "MG, uniform 64^2, Dirichlet",
+                "args": ["face_poisson/solver=MG"] + _DIRICHLET,
+                "max_iterations": 16,
+                "owned_faces": 65 * 64 + 64 * 65 + 64**2,
+            },
+            {
+                "name": "MG, AMR, base block coarsening, Dirichlet",
+                "args": ["face_poisson/solver=MG"] + _AMR + _DIRICHLET,
+                "max_iterations": 20,
+                "owned_faces": 77168,
             },
         ]
         for case in self.cases:

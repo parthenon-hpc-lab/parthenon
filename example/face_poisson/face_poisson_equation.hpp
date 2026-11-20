@@ -28,16 +28,20 @@ using parthenon::Real;
 // that component's (staggered) grid. On a uniform Cartesian grid this is the same as
 // x + alpha (curl curl x - grad div x). Ghost faces must be up to date before calling
 // Ax. Fine-coarse boundaries are treated by the ghost face prolongation and restriction
-// alone, so the operator is not symmetric there.
+// alone, so the operator is not symmetric there. With dirichlet set, the faces on a
+// physical boundary normal to it hold the boundary value, so A is the identity there.
 template <class var_t>
 class FacePoissonEquation {
  public:
   using IndependentVars = parthenon::TypeList<var_t>;
 
   Real alpha;
+  bool dirichlet;
 
   FacePoissonEquation(parthenon::ParameterInput *pin, const std::string &label) {
     alpha = pin->GetOrAddReal(label, "alpha", 1.0);
+    dirichlet = pin->GetOrAddString(label, "boundary", "periodic",
+                                    {"periodic", "dirichlet"}) == "dirichlet";
   }
 
   parthenon::TaskID Ax(parthenon::TaskList &tl, parthenon::TaskID depends_on,
@@ -80,9 +84,25 @@ class FacePoissonEquation {
     auto pack_in = desc.GetPack(md_in.get());
     auto pack_out = desc.GetPack(md_out.get());
     const Real a = alpha;
+    const bool fixed_boundary = dirichlet;
+    // Offset of the neighbor across the faces normal to te, and the index of the first
+    // and last of those faces in the block
+    constexpr int dir = static_cast<int>(te) % 3;
+    const IndexRange nb = dir == 0 ? ib : (dir == 1 ? jb : kb);
     parthenon::par_for(
         "FacePoissonAx", 0, pack_in.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          if (fixed_boundary) {
+            const int n = dir == 0 ? i : (dir == 1 ? j : k);
+            const int off = (n == nb.s) ? -1 : ((n == nb.e) ? 1 : 0);
+            if (off != 0 &&
+                pack_in.IsPhysicalBoundary(b, (dir == 2) * off, (dir == 1) * off,
+                                           (dir == 0) * off)) {
+              pack_out(b, te, var_t(), k, j, i) =
+                  diagonal ? 1.0 : pack_in(b, te, var_t(), k, j, i);
+              return;
+            }
+          }
           const auto &coords = pack_in.GetCoordinates(b);
           const Real idx1 = 1.0 / coords.template Dxc<X1DIR>(k, j, i);
           const Real idx2 = 1.0 / coords.template Dxc<X2DIR>(k, j, i);

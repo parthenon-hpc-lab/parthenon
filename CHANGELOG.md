@@ -11,6 +11,7 @@
 - [[PR 1446]](https://github.com/parthenon-hpc-lab/parthenon/pull/1446) Die on repeatedly receiving SIGINT
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR XXXX]](https://github.com/parthenon-hpc-lab/parthenon/pull/XXXX) Reflect face, edge, and node fields in `GenericBC` about the boundary element when it lies on the boundary, and set that element for `FixedFace` and `Reflect`
 - [[PR XXXX]](https://github.com/parthenon-hpc-lab/parthenon/pull/XXXX) Make Toth & Roe internal prolongation divergence free for non-cubic cells and curvilinear coordinates
 - [[PR XXXX]](https://github.com/parthenon-hpc-lab/parthenon/pull/XXXX) Make the MG restriction send wait on a custom restrictor instead of the residual
 - [[PR 1445]](https://github.com/parthenon-hpc-lab/parthenon/pull/1445) Fix ownership for self-bordering blocks
