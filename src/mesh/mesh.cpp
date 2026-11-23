@@ -60,6 +60,7 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "utils/comms_trace.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/partition_stl_containers.hpp"
 
@@ -102,6 +103,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       do_coalesced_comms{pin->GetOrAddBoolean(
           "parthenon/mesh", "do_coalesced_comms", false,
           "Use coalesced MPI messages for inter-block communication")},
+      coalesced_wait_for_sends{pin->GetOrAddBoolean(
+          "parthenon/mesh", "coalesced_wait_for_sends", false,
+          "Keep polling MPI in coalesced receive tasks until this rank's coalesced "
+          "sends have completed")},
       nbuf_add_{pin->GetOrAddInteger(
           "parthenon/mesh", "comm_buffer_chunk_size", -1,
           "Number of comm buffers to allocate when more are required. Default is a "
@@ -116,6 +121,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
                                "How many times to internally coarsen blocks before going "
                                "to two-level composite grids")} {
+  comms_trace::Initialize(pin);
+
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -218,7 +225,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     max_level = max_level_ref_;
   }
 
-  if (multigrid) SetNumberOfCommChannels(BoundaryType::gmg_restrict_send, 2);
+  if (multigrid) SetNumberOfCommLanes(BoundaryType::gmg_restrict_send, 2);
 
   SetupMPIComms();
 
@@ -1328,6 +1335,7 @@ void Mesh::BuildAndRegisterCommBuffers_() {
   // Clear boundary communication buffers
   boundary_comm_map.clear();
   pcoalesced_comms->clear();
+  comms_trace::NewBuild();
 
   // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to
   // all blocks on a rank, so we use the base partition.
@@ -1345,7 +1353,10 @@ void Mesh::BuildAndRegisterCommBuffers_() {
         auto &mdg = mesh_data.Add("base", partition);
         BuildBoundaryBuffers(mdg);
         BuildGMGBoundaryBuffers(mdg);
-        if (do_coalesced_comms) RegisterCoalescedCommsGMG(mdg);
+        if (do_coalesced_comms) {
+          RegisterCoalescedComms(mdg);
+          RegisterCoalescedCommsGMG(mdg);
+        }
       }
     }
   }
@@ -1354,6 +1365,9 @@ void Mesh::BuildAndRegisterCommBuffers_() {
     pcoalesced_comms->ResolveAndSendSendBuffers();
     // This operation is blocking
     pcoalesced_comms->ReceiveBufferInfo();
+    if (comms_trace::CensusEnabled()) pcoalesced_comms->PrintCensus();
+  } else if (comms_trace::CensusEnabled() && Globals::my_rank == 0) {
+    std::printf("comms_trace: census requested but coalesced comms are disabled\n");
   }
 }
 

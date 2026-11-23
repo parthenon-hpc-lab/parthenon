@@ -108,6 +108,21 @@ void ExchangeBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md_send,
     }
     SetBounds<RECV>(md_recv);
   }
+  // Wait for our own sends as well, as the point-to-point remesh did with MPI_Waitall.
+  // Some MPI implementations only progress rendezvous sends while the sender is inside
+  // MPI, so returning with sends in flight can stall the receiving ranks while this rank
+  // does MPI-free work after the exchange
+  if (have_send) {
+    Mesh *pmesh = md_send->GetMeshPointer();
+    auto &cache = md_send->GetBvarsCache().GetSubCache(SEND, true);
+    bool done = false;
+    while (!done && ++iters < max_it) {
+      done = std::all_of(cache.buf_vec.begin(), cache.buf_vec.end(),
+                         [](auto pbuf) { return pbuf->IsAvailableForWrite(); });
+      if (pmesh->do_coalesced_comms)
+        done = pmesh->pcoalesced_comms->IsAvailableForWrite(md_send.get(), SEND) && done;
+    }
+  }
   PARTHENON_REQUIRE(iters < max_it, "Remesh communication did not complete.");
 }
 
@@ -705,10 +720,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     SetRemeshNeighbors_(block_list, onbs, new_block_list, nbs, newloc, newrank,
                         old_gid_of, new_gid_of, nbtold);
 
+    // Coalesced comms identify the sending MeshData by its partition, so these need
+    // their own (leaf grid) partitions covering the old and new block lists
     auto md_old = std::make_shared<MeshData<Real>>("base", block_list, this);
     auto md_new = std::make_shared<MeshData<Real>>("base", new_block_list, this);
-    md_old->partition = 0;
-    md_new->partition = 0;
+    md_old->partition =
+        std::make_shared<BlockListPartition>(0, GridIdentifier::leaf(), block_list, this);
+    md_new->partition = std::make_shared<BlockListPartition>(0, GridIdentifier::leaf(),
+                                                             new_block_list, this);
 
     // Prolongation onto newly refined blocks uses the ghost zones of their parents. These
     // are already valid for FillGhost variables, but nothing else fills them for
@@ -838,7 +857,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         // need their ghost zones filled on the new mesh. They get their own channel.
         ResetCommunicationInfrastructure(this);
         auto md_new = std::make_shared<MeshData<Real>>("base", block_list, this);
-        md_new->partition = 0;
+        md_new->partition = std::make_shared<BlockListPartition>(
+            0, GridIdentifier::leaf(), block_list, this);
         AddToTagMap<BoundaryType::remesh_halo>(md_new);
         tag_map.ResolveMap();
         BuildRemeshHaloBuffers(md_new);

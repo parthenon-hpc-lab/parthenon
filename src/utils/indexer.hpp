@@ -244,12 +244,24 @@ template <class... Ts>
 class SpatiallyMaskedIndexer : public Indexer<Ts...> {
  public:
   KOKKOS_INLINE_FUNCTION
-  SpatiallyMaskedIndexer() : Indexer<Ts...>(), active_() {}
+  SpatiallyMaskedIndexer() : Indexer<Ts...>(), active_(), all_active_(false) {}
 
   template <class... Args>
   KOKKOS_INLINE_FUNCTION SpatiallyMaskedIndexer(const block_ownership_t &active,
                                                 std::pair<Ts, Ts>... Ns)
-      : active_(active), Indexer<Ts...>(Ns...) {}
+      : active_(active), Indexer<Ts...>(Ns...), all_active_(true) {
+    for (int ox1 = -1; ox1 <= 1; ++ox1) {
+      for (int ox2 = -1; ox2 <= 1; ++ox2) {
+        for (int ox3 = -1; ox3 <= 1; ++ox3) {
+          all_active_ = all_active_ && active_(ox1, ox2, ox3);
+        }
+      }
+    }
+  }
+
+  // True if IsActive returns true for every index in the range
+  KOKKOS_INLINE_FUNCTION
+  bool AllActive() const { return all_active_; }
 
   KOKKOS_INLINE_FUNCTION
   bool IsActive(int k, int j, int i) const {
@@ -271,6 +283,7 @@ class SpatiallyMaskedIndexer : public Indexer<Ts...> {
 
  private:
   block_ownership_t active_;
+  bool all_active_;
 };
 
 using Indexer1D = Indexer<int>;

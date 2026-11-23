@@ -128,6 +128,10 @@ class CommBuffer {
 
   BufferState GetState() { return *state_; }
 
+  // True once the receive has been posted (for sparse receivers, once the message
+  // envelope has been seen)
+  bool ReceiveStarted() const { return *started_irecv_; }
+
   void Send(bool local = false, int size = -1) noexcept;
   void SendNull(bool local = false) noexcept;
 

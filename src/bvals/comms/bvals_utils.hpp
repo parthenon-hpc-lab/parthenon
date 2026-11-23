@@ -55,7 +55,7 @@ inline std::string GetLabel(Mesh::channel_key_t &key) {
 // field->label().
 template <class Field>
 inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb,
-                                   const Field &pcv, BoundaryType btype, int id) {
+                                   const Field &pcv, BoundaryType btype, int lane) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.gid;
   const int location_idx = nb.offsets.GetIdx();
@@ -65,13 +65,13 @@ inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb
                           ? 1
                           : 0;
   int other =
-      gmg_self_comm + 2 * id; // Combine the id and gmg_self_comm into a single tag
+      gmg_self_comm + 2 * lane; // Combine the lane and gmg_self_comm into a single tag
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
 template <class Field>
 inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock &nb,
-                                      const Field &pcv, BoundaryType btype, int id) {
+                                      const Field &pcv, BoundaryType btype, int lane) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.gid;
   const int location_idx = nb.lcoord_trans.Transform(nb.offsets).GetReverseIdx();
@@ -80,8 +80,18 @@ inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock 
                           ? 1
                           : 0;
   int other =
-      gmg_self_comm + 2 * id; // Combine the id and gmg_self_comm into a single tag
+      gmg_self_comm + 2 * lane; // Combine the lane and gmg_self_comm into a single tag
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
+}
+
+// Number of teams to assign to each of nbound buffers so that a kernel over all of the
+// buffers launches at least minimum_number_of_teams_for_boundary_kernel teams
+inline int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
+  PARTHENON_REQUIRE_THROWS(
+      nbound > 0,
+      "Cannot calculate the number of teams per boundary buffer without boundaries.");
+  return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + nbound - 1) /
+                         nbound);
 }
 
 inline Mesh::channel_key_t GetChannelKey(BndId &in) {
@@ -117,7 +127,7 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   int boundary_idx = 0;
   ForEachBoundary<bound_type>(
       md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
-        auto key = KeyFunc(pmb, nb, v, bound_type, md->GetBoundBufferId(bound_type));
+        auto key = KeyFunc(pmb, nb, v, bound_type, md->GetCommLane(bound_type));
         PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
                                 "Boundary communicator does not exist");
         // Create a unique index by combining receiver gid (second element of the key
