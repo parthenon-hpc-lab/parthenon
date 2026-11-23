@@ -54,7 +54,7 @@ jobs:
             fi
         - name: Get all git references, needed for sphinx multiversion
           run: |
-            git fetch --prune --unshallow --tags
+            git fetch --prune --unshallow --tags --no-recurse-submodules
             git branch -a
             git tag --list
         - name: build docs
