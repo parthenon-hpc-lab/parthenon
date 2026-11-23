@@ -357,11 +357,6 @@ class Mesh {
     if (!IsReceiver(bound)) number_of_comm_lanes_[GetAssociatedReceiver(bound)] = n_lanes;
   }
 
-  [[deprecated("Use SetNumberOfCommLanes")]] void
-  SetNumberOfCommChannels(BoundaryType bound, std::size_t n_channels) {
-    SetNumberOfCommLanes(bound, n_channels);
-  }
-
   void LockCommLaneNumbers(BoundaryType bound) {
     locked_comm_lane_numbers_.insert(GetAssociatedSender(bound));
     locked_comm_lane_numbers_.insert(GetAssociatedReceiver(bound));
@@ -371,11 +366,6 @@ class Mesh {
     if (number_of_comm_lanes_.count(bound)) return number_of_comm_lanes_.at(bound);
     // We default to only having a single comm lane
     return 1;
-  }
-
-  [[deprecated("Use GetNumberOfCommLanes")]] std::size_t
-  GetNumberOfCommChannels(BoundaryType bound) const {
-    return GetNumberOfCommLanes(bound);
   }
 
   template <BoundaryType bound_type>

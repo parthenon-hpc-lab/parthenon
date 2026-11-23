@@ -471,7 +471,9 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_temp = pmesh->mesh_data.Add(container_temp, partition, sol_fields);
     auto &md_u0 = pmesh->mesh_data.Add(container_u0, partition, sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, partition, sol_fields);
-    // Use a separate comm lane (i.e. set of communication buffers)
+    // Use a separate comm lane (i.e. set of communication buffers). This requires
+    // gmg_restrict_* to have at least two lanes, which the Mesh constructor sets up
+    // when multigrid is enabled (see SetNumberOfCommLanes in mesh.cpp)
     md_res_err->SetCommLane(BoundaryType::gmg_restrict_send, 1);
     md_res_err->SetCommLane(BoundaryType::gmg_restrict_recv, 1);
     auto timer_guard_total = TimingAccumulatorGuard(
