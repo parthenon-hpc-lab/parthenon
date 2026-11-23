@@ -40,11 +40,13 @@
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "parthenon_mpi.hpp"
 #include "tensors/tt_boundary_cache.hpp"
 #include "tensors/tt_boundary_comm.hpp"
 #include "tensors/tt_container.hpp"
 #include "tensors/tt_field_metadata.hpp"
 #include "tensors/tt_pack.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
 using parthenon::ApplicationInput;
@@ -95,7 +97,47 @@ std::shared_ptr<Mesh> MakeMesh(ApplicationInput *app_in, Packages_t &packages) {
   is << "x2min = 0.0\nx2max = 0.5\n";
   auto pin = std::make_shared<ParameterInput>();
   pin->LoadFromStream(is);
-  return std::make_shared<Mesh>(pin.get(), app_in, packages, 0);
+  auto mesh = std::make_shared<Mesh>(pin.get(), app_in, packages, 0);
+  // Builds the tag map and communicators that cross-rank TT channels use.
+  mesh->Initialize(/*init_problem=*/false, pin.get(), app_in);
+  return mesh;
+}
+
+// Sum a per-rank count over all ranks, so checks hold however blocks are distributed.
+int64_t GlobalSum(int64_t local) {
+#ifdef MPI_PARALLEL
+  int64_t global = 0;
+  PARTHENON_MPI_CHECK(
+      MPI_Allreduce(&local, &global, 1, MPI_INT64_T, MPI_SUM, MPI_COMM_WORLD));
+  return global;
+#else
+  return local;
+#endif
+}
+
+// Number of cells (at theta = phi = 0) of the reconstructed field of each train whose
+// magnitude exceeds threshold.
+int64_t CountFilled(const std::vector<tensor::TensorTrain *> &trains, double threshold) {
+  if (trains.empty()) return 0;
+  auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(trains).MakeDevicePack();
+  int nnz = 0;
+  parthenon::par_reduce(
+      parthenon::loop_pattern_flatrange_tag, "CountFilled", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(const int b, int &lnz) {
+        auto &c0 = pack(b, 0, 0);
+        auto &c1 = pack(b, 0, 1);
+        auto &c2 = pack(b, 0, 2);
+        for (int idx = 0; idx < c0.DD(); ++idx) {
+          double val = 0.0;
+          for (int r1 = 0; r1 < c0.RR(); ++r1)
+            for (int r2 = 0; r2 < c1.RR(); ++r2)
+              val += c0(0, idx, r1) * c1(r1, 0, r2) * c2(r2, 0, 0);
+          lnz += (Kokkos::fabs(val) > threshold);
+        }
+      },
+      nnz);
+  return nnz;
 }
 
 } // namespace
@@ -116,15 +158,16 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
   REQUIRE(nbound > 0);
 
   // Sanity: the refined mesh actually produces both cross-level interface kinds, so this
-  // test exercises the restriction and prolongation maps (not just same-level).
+  // test exercises the restriction and prolongation maps (not just same-level). Counted
+  // over all ranks, since a rank's blocks need not have both.
   {
-    int n_f2c = 0, n_c2f = 0;
+    int64_t n_f2c = 0, n_c2f = 0;
     for (int e = 0; e < nbound; ++e) {
       if (cache.bnd_info_h(e).btype == BoundaryRelation::f2c) ++n_f2c;
       if (cache.bnd_info_h(e).btype == BoundaryRelation::c2f) ++n_c2f;
     }
-    REQUIRE(n_f2c > 0);
-    REQUIRE(n_c2f > 0);
+    REQUIRE(GlobalSum(n_f2c) > 0);
+    REQUIRE(GlobalSum(n_c2f) > 0);
   }
 
   // Seed every block to the SAME global constant C in its interior and 0 in its ghosts,
@@ -178,6 +221,7 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
   // cell maps (a mis-indexed map would either write a stray value -- caught here -- or
   // fail to fill, caught by the nonzero-count check below). We assert at least one f2c
   // and one c2f addend is actually exercised.
+  int64_t addend_filled = 0; // cells filled by all of this rank's addends
   {
     auto addends = parthenon::BuildBoundaryTensors(md, cache);
     REQUIRE(static_cast<int>(addends.size()) == nbound);
@@ -225,16 +269,32 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
       // empty prores box, so accumulate per class rather than asserting per boundary.
       if (btype == BoundaryRelation::f2c) f2c_filled += nnz;
       if (btype == BoundaryRelation::c2f) c2f_filled += nnz;
+      addend_filled += nnz;
     }
     // Both cross-level maps are exercised and produce the constant somewhere.
-    REQUIRE(f2c_filled > 0);
-    REQUIRE(c2f_filled > 0);
+    REQUIRE(GlobalSum(f2c_filled) > 0);
+    REQUIRE(GlobalSum(c2f_filled) > 0);
   }
 
-  // Run one exchange.
-  parthenon::TTSend(md, /*eps=*/1.0e-12);
-  REQUIRE(parthenon::TTReceive(md) == parthenon::TaskStatus::complete);
+  std::vector<tensor::TensorTrain *> chk;
+  for (int b = 0; b < md->NumBlocks(); ++b)
+    chk.push_back(&md->GetBlockData(b)->Get("I")->train());
+  // Count against C/2 so rounding noise in unfilled cells is not mistaken for data.
+  const int64_t filled_before = GlobalSum(CountFilled(chk, 0.5 * kC));
+
+  // Run one exchange, polling the receive as a task list would.
+  while (parthenon::TTSend(md, /*eps=*/1.0e-12) != parthenon::TaskStatus::complete) {
+  }
+  while (parthenon::TTReceive(md) != parthenon::TaskStatus::complete) {
+  }
   parthenon::TTSetBounds(md, /*eps=*/1.0e-12);
+
+  // Every addend lands in exactly one receiver's ghosts, and no ghost cell is filled
+  // twice (it would hold 2C and fail the check below), so the global number of filled
+  // cells grows by exactly the global number of addend cells. This holds only if every
+  // cross-rank addend arrives intact.
+  REQUIRE(GlobalSum(CountFilled(chk, 0.5 * kC)) ==
+          filled_before + GlobalSum(addend_filled));
 
   // After the additive combine + rounding, no cell of any block may hold a wrong non-zero
   // value: a constant field must never be corrupted by the restriction/prolongation maps
@@ -242,9 +302,6 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
   // corner ghosts across the refinement jump need neighbors not in this one-round set --
   // so we do not assert full coverage here; the addend check above already confirms every
   // boundary fills cells with the correct value.)
-  std::vector<tensor::TensorTrain *> chk;
-  for (int b = 0; b < md->NumBlocks(); ++b)
-    chk.push_back(&md->GetBlockData(b)->Get("I")->train());
   auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(chk).MakeDevicePack();
   int nbad = 0;
   parthenon::par_reduce(

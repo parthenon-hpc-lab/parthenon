@@ -33,6 +33,7 @@
 #include "tensors/tt_comm_channel.hpp"
 #include "tensors/tt_operations.hpp"
 #include "tensors/tt_pack.hpp"
+#include "tensors/tt_serialize.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
@@ -65,12 +66,40 @@ TTCommChannel &GetReceiveChannel(Mesh *pmesh, const Mesh::channel_key_t &key) {
   return pmesh->tt_comm_map.at(key);
 }
 
+// Return the send channel for boundary (pmb, nb) of field v, creating it if needed. A
+// same-rank neighbor shares one local channel between both ends (its SendKey is the
+// receiver's ReceiveKey). A remote neighbor gets a remote send channel here and a
+// remote receive channel for the reverse direction, so the receive side can find it by
+// ReceiveKey. Remote channels use the regular-field geometric tag on the field's TT
+// communicator, so both ranks agree on tags without exchanging anything.
+template <class Var>
+TTCommChannel &GetOrCreateChannels(Mesh *pmesh, MeshBlock *pmb, const NeighborBlock &nb,
+                                   const Var &v, const int id) {
+  auto &map = pmesh->tt_comm_map;
+  const auto skey = SendKey(pmb, nb, v, BoundaryType::any, id);
+  if (nb.rank == Globals::my_rank) return map[skey];
+#ifdef MPI_PARALLEL
+  const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
+  const auto comm = pmesh->GetMPIComm(TTCommLabel(v->label()));
+  const auto rkey = ReceiveKey(pmb, nb, v, BoundaryType::any, id);
+  if (map.count(rkey) == 0)
+    map[rkey] = TTCommChannel(tag, nb.rank, Globals::my_rank, comm);
+  if (map.count(skey) == 0)
+    map[skey] = TTCommChannel(tag, Globals::my_rank, nb.rank, comm);
+  return map.at(skey);
+#else
+  PARTHENON_FAIL("Remote TT neighbor without MPI.");
+  return map[skey];
+#endif
+}
+
 } // namespace
 
 // Build the send-side boundary cache: walk every boundary, record its send channel (keyed
-// by SendKey) and the send/recv index boxes needed to build the addend, packed into a
-// flat device array for one batched launch. The set side needs no cache (it looks up its
-// channel inline by ReceiveKey), so only this send cache exists.
+// by SendKey, creating local or remote channels as needed) and the send/recv index boxes
+// needed to build the addend, packed into a flat device array for one batched launch. The
+// set side needs no cache (it looks up its channel inline by ReceiveKey), so only this
+// send cache exists.
 TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md) {
   using namespace loops;
   Mesh *pmesh = md->GetMeshPointer();
@@ -88,11 +117,7 @@ TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md) {
         PARTHENON_REQUIRE(
             IsIdentityTransform(nb.lcoord_trans),
             "TT boundary comm currently supports identity-transform boundaries only.");
-        PARTHENON_REQUIRE(nb.rank == Globals::my_rank,
-                          "TT boundary comm supports same-rank neighbors only.");
-
-        cache->channels.push_back(
-            &pmesh->tt_comm_map[SendKey(pmb, nb, v, BoundaryType::any, id)]);
+        cache->channels.push_back(&GetOrCreateChannels(pmesh, pmb, nb, v, id));
 
         BlockInfo binfo(pmb);
         auto [other, rev] = ReverseNeighbor(binfo, nb);
@@ -301,7 +326,17 @@ TaskStatus TTZeroBoundaries(std::shared_ptr<MeshTTData> &md) {
 }
 
 TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, Real eps) {
+  using train_t = tensor::TensorTrain;
+  Mesh *pmesh = md->GetMeshPointer();
   TTBoundaryCache &cache = md->GetBoundaryCache();
+  // The channel map is cleared (and its epoch bumped) on remesh.
+  if (cache.epoch != pmesh->tt_comm_map.GetCurrentEpoch()) BuildTTBoundaryCache(md);
+
+  // Wait until every channel is writable: local channels once the receiver has staled
+  // them, remote ones once the previous send has completed.
+  for (auto *chan : cache.channels)
+    if (!chan->IsAvailableForWrite()) return TaskStatus::incomplete;
+
   auto addends = BuildBoundaryTensors(md, cache);
   const int nbound = static_cast<int>(addends.size());
   if (nbound == 0) return TaskStatus::complete;
@@ -310,9 +345,30 @@ TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, Real eps) {
   tensor::TensorTrainHostPack pack(addends);
   tensor::RoundGramSVD(pack, eps);
 
-  // Deposit each addend into its send channel.
-  for (int e = 0; e < nbound; ++e)
-    cache.channels[e]->Send(addends[e]);
+  // Same-rank addends are handed over directly. Remote addends are serialized, all in
+  // one batch, into their channels' send buffers and then sent.
+  std::vector<int> remote;
+  std::vector<std::size_t> sizes;
+  std::vector<const train_t *> trains;
+  std::vector<tensor::SerialTarget<TTCommChannel::buf_t>> targets;
+  for (int e = 0; e < nbound; ++e) {
+    auto *chan = cache.channels[e];
+    if (chan->IsLocal()) {
+      chan->Send(addends[e]);
+      continue;
+    }
+    const std::size_t size = tensor::SerializedSize(*addends[e]);
+    remote.push_back(e);
+    sizes.push_back(size);
+    trains.push_back(addends[e].get());
+    targets.push_back({chan->PrepareSendBuffer(size), 0});
+  }
+  if (remote.empty()) return TaskStatus::complete;
+
+  // SerializeTrains fences, so the buffers are complete before MPI reads them.
+  tensor::SerializeTrains(trains, targets);
+  for (std::size_t i = 0; i < remote.size(); ++i)
+    cache.channels[remote[i]]->SendBuffer(sizes[i]);
 
   return TaskStatus::complete;
 }
@@ -321,6 +377,9 @@ TaskStatus TTReceive(std::shared_ptr<MeshTTData> &md) {
   using namespace loops;
   Mesh *pmesh = md->GetMeshPointer();
   const int id = 0;
+  // Receive channels for remote neighbors are created with the cache.
+  if (md->GetBoundaryCache().epoch != pmesh->tt_comm_map.GetCurrentEpoch())
+    BuildTTBoundaryCache(md);
   bool all = true;
   ForEachBoundary<BoundaryType::any>(
       md, [&](auto pmb, auto /*rc*/, const NeighborBlock &nb, auto v) {
@@ -337,6 +396,32 @@ TaskStatus TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
   using train_t = tensor::TensorTrain;
   Mesh *pmesh = md->GetMeshPointer();
   const int id = 0;
+
+  // Rebuild the addends that arrived from other ranks, all in one batch. They are
+  // deserialized onto the receiving field's per-core layout.
+  {
+    std::vector<TTCommChannel *> chans;
+    std::vector<std::shared_ptr<train_t>> trains;
+    std::vector<train_t *> outs;
+    std::vector<std::vector<Indexer6D>> indexers;
+    std::vector<tensor::SerialTarget<TTCommChannel::buf_t>> sources;
+    ForEachBoundary<BoundaryType::any>(
+        md, [&](auto pmb, auto /*rc*/, const NeighborBlock &nb, auto v) {
+          auto &chan =
+              GetReceiveChannel(pmesh, ReceiveKey(pmb, nb, v, BoundaryType::any, id));
+          if (chan.IsLocal()) return;
+          PARTHENON_REQUIRE(chan.GetState() == BufferState::received,
+                            "TTSetBounds called before TTReceive completed.");
+          chans.push_back(&chan);
+          trains.push_back(std::make_shared<train_t>());
+          outs.push_back(trains.back().get());
+          indexers.push_back(v->train().GetCoreIndexers());
+          sources.push_back({chan.ReceiveBuffer(), 0});
+        });
+    tensor::DeserializeTrains(sources, indexers, outs);
+    for (std::size_t i = 0; i < chans.size(); ++i)
+      chans[i]->SetTrain(trains[i]);
+  }
 
   // Sum each received addend into its destination block's train, looking the receive
   // channel up inline by ReceiveKey (no cache needed on the set side -- the payload is

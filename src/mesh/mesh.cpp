@@ -690,6 +690,9 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
     for (auto &[k, comm] : boundary_comm_map) {
       can_delete = comm.IsSafeToDelete() && can_delete;
     }
+    for (auto &[k, chan] : tt_comm_map) {
+      can_delete = chan.IsSafeToDelete() && can_delete;
+    }
     test_iters++;
   } while (!can_delete && test_iters < max_it);
   PARTHENON_REQUIRE(
@@ -1109,6 +1112,16 @@ void Mesh::SetupMPIComms() {
       PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
     }
   }
+  // Tensor-train fields communicate serialized trains on their own communicators,
+  // using the same geometric tags as regular fields.
+  for (auto &pair : resolved_packages->AllTTFields()) {
+    if (pair.second.metadata.IsSet(Metadata::FillGhost)) {
+      MPI_Comm mpi_comm;
+      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+      const auto ret = mpi_comm_map_.insert({TTCommLabel(pair.first), mpi_comm});
+      PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+    }
+  }
   for (auto &pair : resolved_packages->AllSwarms()) {
     MPI_Comm mpi_comm;
     PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
@@ -1318,8 +1331,10 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
 }
 
 void Mesh::BuildAndRegisterCommBuffers_() {
-  // Clear boundary communication buffers
+  // Clear boundary communication buffers. TT channels are rebuilt lazily by
+  // BuildTTBoundaryCache, which sees the bumped epoch.
   boundary_comm_map.clear();
+  tt_comm_map.clear();
   pcoalesced_comms->clear();
 
   // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to

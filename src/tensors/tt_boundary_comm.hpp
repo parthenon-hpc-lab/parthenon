@@ -30,10 +30,12 @@ namespace parthenon {
 // (via CalcIndices + the reverse-neighbor descriptor), store the two indexers plus the
 // whole-block extents as a TTBndInfo, and ensure a TTCommChannel exists in
 // mesh->tt_comm_map for each boundary (recorded by index in cache.channels). The result
-// is a single flat device array for one batched Send launch. Identity-transform,
-// same-rank boundaries only for now; asserts otherwise. Always rebuilds. The cache
-// records the channel-map epoch it was built against, for remesh detection once AMR is
-// supported; nothing checks it yet, so callers must rebuild after any (re)mesh.
+// is a single flat device array for one batched Send launch. Same-rank neighbors get a
+// local channel shared by both ends; remote neighbors get a remote send channel plus a
+// remote receive channel for the reverse direction (see TTCommChannel).
+// Identity-transform boundaries only for now; asserts otherwise. Always rebuilds. The
+// cache records the channel-map epoch it was built against, and TTSend/TTReceive rebuild
+// it when the map has been cleared by a (re)mesh.
 TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md);
 
 // Build the boundary "addend" trains: one whole-block train per cached boundary, holding
@@ -53,18 +55,22 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
 // rather than overwriting. Physical-boundary ghosts are zeroed too.
 TaskStatus TTZeroBoundaries(std::shared_ptr<MeshTTData> &md);
 
-// TT boundary communication (single rank). Send builds the per-boundary addend trains
-// (BuildBoundaryTensors), rounds each, and deposits them into the send channels via the
-// cache. Only the send side needs the cache. Receive/Set look their channels up inline by
-// ReceiveKey. The cache must be current (BuildTTBoundaryCache after (re)mesh).
+// TT boundary communication. Send builds the per-boundary addend trains
+// (BuildBoundaryTensors) and rounds each. Same-rank addends are deposited directly into
+// their local channels; addends for other ranks are serialized in one batch
+// (tt_serialize.hpp) and sent over MPI. Returns incomplete, without building anything,
+// while any channel is still busy with the previous exchange. Only the send side needs
+// the cache. Receive/Set look their channels up inline by ReceiveKey.
 TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, Real round_eps);
 
-// Try to receive every boundary's addend. Returns true once all receive channels have
-// deposited (single rank: complete after the matching TTSend). Idempotent.
+// Try to receive every boundary's addend. Returns complete once all receive channels have
+// arrived (same rank: right after the matching TTSend), incomplete otherwise, so it can
+// be polled from a task list. Idempotent.
 TaskStatus TTReceive(std::shared_ptr<MeshTTData> &md);
 
-// Sum each received addend into the destination block's train, round every field of
-// every block once, and stale the channels. This is a pure additive combine with no index
+// Deserialize the addends received from other ranks (in one batch), sum each received
+// addend into the destination block's train, round every field of every block once, and
+// stale the channels. This is a pure additive combine with no index
 // math on the receive side: each addend is zero outside the receiver's ghost cells, so
 // the result is correct only if those ghost cells are zero beforehand. Call
 // TTZeroBoundaries first unless the ghosts are known to be zero.
