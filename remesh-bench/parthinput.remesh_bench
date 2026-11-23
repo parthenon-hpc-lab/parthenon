@@ -1,0 +1,61 @@
+# Remesh benchmark deck: 3D advection of a hard sphere with AMR.
+# Sweep parameters are overridden on the command line by run_sweep.sh, e.g.
+#   parthenon/meshblock/nx1=16 Advection/num_vars=4 parthenon/mesh/do_coalesced_comms=true
+
+<parthenon/job>
+problem_id = remesh_bench
+
+<parthenon/mesh>
+refinement = adaptive
+numlevel = 3
+do_coalesced_comms = false
+
+nx1 = 64
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 64
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 64
+x3min = -0.5
+x3max = 0.5
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 16
+nx2 = 16
+nx3 = 16
+
+<parthenon/time>
+nlim = 200
+tlim = 10.0
+integrator = rk2
+ncycle_out = 50
+ncycle_out_mesh = -10000
+# -1: never clear the comm buffer pool (default); N>0: check every N cycles
+comm_buffer_reset_cadence = -1
+
+<Advection>
+cfl = 0.45
+vx = 1.0
+vy = 1.0
+vz = 1.0
+profile = hard_sphere
+refine_tol = 0.3
+derefine_tol = 0.03
+compute_error = false
+num_vars = 1
+vec_size = 1
+fill_derived = false
+
+# History is the bitwise-equality check between branches
+<parthenon/output0>
+file_type = hst
+dt = 0.01

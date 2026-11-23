@@ -1,0 +1,9 @@
+# Created by rocinante/setup.sh and the sweeps
+src-*/
+build-*/
+*.log
+kokkos-tools/
+kt-install/
+results*/
+remesh-bench-*.out
+__pycache__/
