@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2023 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -16,6 +16,7 @@
 // the public, perform publicly and display publicly, and to permit others to do
 // so.
 //========================================================================================
+// This file was made in part with generative AI.
 
 #ifndef PROLONG_RESTRICT_PR_OPS_HPP_
 #define PROLONG_RESTRICT_PR_OPS_HPP_
