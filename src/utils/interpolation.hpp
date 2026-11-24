@@ -22,8 +22,6 @@
 
 #include <algorithm>
 
-#include <Kokkos_Array.hpp>
-
 // Parthenon includes
 #include <coordinates/coordinates.hpp>
 #include <kokkos_abstraction.hpp>
@@ -53,6 +51,32 @@ struct weights_t {
 namespace cent {
 namespace linear {
 
+namespace impl {
+
+template <typename Pack>
+KOKKOS_INLINE_FUNCTION const auto &GetCoords(const Pack &p, int b) {
+  return p.GetCoords(b);
+}
+
+template <class... Ts>
+KOKKOS_INLINE_FUNCTION const auto &GetCoords(const SparsePack<Ts...> &p, int b) {
+  return p.GetCoordinates(b);
+}
+
+template <typename Pack, typename VarIndex>
+KOKKOS_INLINE_FUNCTION int GetDim(const Pack &p, int /*b*/, const VarIndex & /*v*/,
+                                  int d) {
+  return p.GetDim(d);
+}
+
+template <typename VarIndex, class... Ts>
+KOKKOS_INLINE_FUNCTION int GetDim(const SparsePack<Ts...> &p, int b, const VarIndex &v,
+                                  int d) {
+  return p(b, v).GetDim(d);
+}
+
+} // namespace impl
+
 /*
  * Get interpolation weights for linear interpolation
  * PARAM[IN] - x - location to interpolate to
@@ -77,21 +101,21 @@ KOKKOS_INLINE_FUNCTION void GetWeights(const Real x, const int nx,
 }
 
 /*
- * Trilinear interpolation on a variable or meshblock pack
+ * Trilinear interpolation of an allocated cell-centered field
  * PARAM[IN] - b - Meshblock index
  * PARAM[IN] - X1, X2, X3 - Coordinate locations
- * PARAM[IN] - p - Variable or MeshBlockPack
+ * PARAM[IN] - p - legacy pack or non-flat SparsePack
  * PARAM[IN] - v - variable index
  */
-template <typename Pack>
+template <typename Pack, typename VarIndex>
 KOKKOS_INLINE_FUNCTION Real Do3D(int b, const Real X1, const Real X2, const Real X3,
-                                 const Pack &p, int v) {
-  const auto &coords = p.GetCoords(b);
+                                 const Pack &p, const VarIndex &v) {
+  const auto &coords = impl::GetCoords(p, b);
   int ix[3];
   weights_t w[3];
-  GetWeights<X1DIR>(X1, p.GetDim(1), coords, ix[0], w[0]);
-  GetWeights<X2DIR>(X2, p.GetDim(2), coords, ix[1], w[1]);
-  GetWeights<X3DIR>(X3, p.GetDim(3), coords, ix[2], w[2]);
+  GetWeights<X1DIR>(X1, impl::GetDim(p, b, v, 1), coords, ix[0], w[0]);
+  GetWeights<X2DIR>(X2, impl::GetDim(p, b, v, 2), coords, ix[1], w[1]);
+  GetWeights<X3DIR>(X3, impl::GetDim(p, b, v, 3), coords, ix[2], w[2]);
   return (w[2][0] * (w[1][0] * (w[0][0] * p(b, v, ix[2], ix[1], ix[0]) +
                                 w[0][1] * p(b, v, ix[2], ix[1], ix[0] + 1)) +
                      w[1][1] * (w[0][0] * p(b, v, ix[2], ix[1] + 1, ix[0]) +
@@ -103,47 +127,46 @@ KOKKOS_INLINE_FUNCTION Real Do3D(int b, const Real X1, const Real X2, const Real
 }
 
 /*
- * Bilinear interpolation on a variable or meshblock pack
+ * Bilinear interpolation of an allocated cell-centered field
  * PARAM[IN] - b - Meshblock index
  * PARAM[IN] - X1, X2 - Coordinate locations
- * PARAM[IN] - p - Variable or MeshBlockPack
+ * PARAM[IN] - p - legacy pack or non-flat SparsePack
  * PARAM[IN] - v - variable index
  */
-template <typename Pack>
+template <typename Pack, typename VarIndex>
 KOKKOS_INLINE_FUNCTION Real Do2D(int b, const Real X1, const Real X2, const Pack &p,
-                                 int v) {
-  const auto &coords = p.GetCoords(b);
+                                 const VarIndex &v) {
+  const auto &coords = impl::GetCoords(p, b);
   int ix1, ix2;
   weights_t w1, w2;
-  GetWeights<X1DIR>(X1, p.GetDim(1), coords, ix1, w1);
-  GetWeights<X2DIR>(X2, p.GetDim(2), coords, ix2, w2);
+  GetWeights<X1DIR>(X1, impl::GetDim(p, b, v, 1), coords, ix1, w1);
+  GetWeights<X2DIR>(X2, impl::GetDim(p, b, v, 2), coords, ix2, w2);
   return (w2[0] * (w1[0] * p(b, v, 0, ix2, ix1) + w1[1] * p(b, v, 0, ix2, ix1 + 1)) +
           w2[1] *
               (w1[0] * p(b, v, 0, ix2 + 1, ix1) + w1[1] * p(b, v, 0, ix2 + 1, ix1 + 1)));
 }
 
 /*
- * Linear interpolation on a variable or meshblock pack
+ * Linear interpolation of an allocated cell-centered field
  * PARAM[IN] - b - Meshblock index
  * PARAM[IN] - X1 - Coordinate location
- * PARAM[IN] - p - Variable or MeshBlockPack
+ * PARAM[IN] - p - legacy pack or non-flat SparsePack
  * PARAM[IN] - v - variable index
  */
-template <typename Pack>
-KOKKOS_INLINE_FUNCTION Real Do1D(int b, const Real X1, const Pack &p, int v) {
-  const auto &coords = p.GetCoords(b);
+template <typename Pack, typename VarIndex>
+KOKKOS_INLINE_FUNCTION Real Do1D(int b, const Real X1, const Pack &p, const VarIndex &v) {
+  const auto &coords = impl::GetCoords(p, b);
   int ix;
   weights_t w;
-  GetWeights<X1DIR>(X1, p.GetDim(1), coords, ix, w);
+  GetWeights<X1DIR>(X1, impl::GetDim(p, b, v, 1), coords, ix, w);
   return w[0] * p(b, v, 0, 0, ix) + w[1] * p(b, v, 0, 0, ix + 1);
 }
 
 /*
- * Trilinear or bilinear interpolation on a variable or meshblock pack
- * PARAM[IN] - axisymmetric
+ * Linear, bilinear, or trilinear interpolation of an allocated cell-centered field
  * PARAM[IN] - b - Meshblock index
  * PARAM[IN] - X1, X2, X3 - Coordinate locations
- * PARAM[IN] - p - Variable or MeshBlockPack
+ * PARAM[IN] - p - legacy pack or non-flat SparsePack
  * PARAM[IN] - v - variable index
  */
 // JMM: I know this won't vectorize because of the switch, but it
@@ -151,70 +174,15 @@ KOKKOS_INLINE_FUNCTION Real Do1D(int b, const Real X1, const Pack &p, int v) {
 // interpolation, which will kill memory locality.  Doing it this
 // way means we can do trilinear vs bilinear which I think is a
 // sufficient win at minimum code bloat.
-template <typename Pack>
+template <typename Pack, typename VarIndex>
 KOKKOS_INLINE_FUNCTION Real Do(int b, const Real X1, const Real X2, const Real X3,
-                               const Pack &p, int v) {
-  if (p.GetDim(3) > 1) {
+                               const Pack &p, const VarIndex &v) {
+  if (impl::GetDim(p, b, v, 3) > 1) {
     return Do3D(b, X1, X2, X3, p, v);
-  } else if (p.GetDim(2) > 1) {
+  } else if (impl::GetDim(p, b, v, 2) > 1) {
     return Do2D(b, X1, X2, p, v);
   } else { // 1D
     return Do1D(b, X1, p, v);
-  }
-}
-
-template <class... Ts>
-KOKKOS_INLINE_FUNCTION Real Do3D(int b, const Real X1, const Real X2, const Real X3,
-                                 const SparsePack<Ts...> &p, int v,
-                                 const Kokkos::Array<int, 3> &ncells) {
-  const auto &coords = p.GetCoordinates(b);
-  int i, j, k;
-  weights_t wi, wj, wk;
-  GetWeights<X1DIR>(X1, ncells[0], coords, i, wi);
-  GetWeights<X2DIR>(X2, ncells[1], coords, j, wj);
-  GetWeights<X3DIR>(X3, ncells[2], coords, k, wk);
-  return wk[0] *
-             (wj[0] * (wi[0] * p(b, v, k, j, i) + wi[1] * p(b, v, k, j, i + 1)) +
-              wj[1] * (wi[0] * p(b, v, k, j + 1, i) + wi[1] * p(b, v, k, j + 1, i + 1))) +
-         wk[1] *
-             (wj[0] * (wi[0] * p(b, v, k + 1, j, i) + wi[1] * p(b, v, k + 1, j, i + 1)) +
-              wj[1] * (wi[0] * p(b, v, k + 1, j + 1, i) +
-                       wi[1] * p(b, v, k + 1, j + 1, i + 1)));
-}
-
-template <class... Ts>
-KOKKOS_INLINE_FUNCTION Real Do2D(int b, const Real X1, const Real X2,
-                                 const SparsePack<Ts...> &p, int v,
-                                 const Kokkos::Array<int, 3> &ncells) {
-  const auto &coords = p.GetCoordinates(b);
-  int i, j;
-  weights_t wi, wj;
-  GetWeights<X1DIR>(X1, ncells[0], coords, i, wi);
-  GetWeights<X2DIR>(X2, ncells[1], coords, j, wj);
-  return wj[0] * (wi[0] * p(b, v, 0, j, i) + wi[1] * p(b, v, 0, j, i + 1)) +
-         wj[1] * (wi[0] * p(b, v, 0, j + 1, i) + wi[1] * p(b, v, 0, j + 1, i + 1));
-}
-
-template <class... Ts>
-KOKKOS_INLINE_FUNCTION Real Do1D(int b, const Real X1, const SparsePack<Ts...> &p, int v,
-                                 const Kokkos::Array<int, 3> &ncells) {
-  const auto &coords = p.GetCoordinates(b);
-  int i;
-  weights_t wi;
-  GetWeights<X1DIR>(X1, ncells[0], coords, i, wi);
-  return wi[0] * p(b, v, 0, 0, i) + wi[1] * p(b, v, 0, 0, i + 1);
-}
-
-template <class... Ts>
-KOKKOS_INLINE_FUNCTION Real Do(int b, const Real X1, const Real X2, const Real X3,
-                               const SparsePack<Ts...> &p, int v,
-                               const Kokkos::Array<int, 3> &ncells) {
-  if (ncells[2] > 1) {
-    return Do3D(b, X1, X2, X3, p, v, ncells);
-  } else if (ncells[1] > 1) {
-    return Do2D(b, X1, X2, p, v, ncells);
-  } else {
-    return Do1D(b, X1, p, v, ncells);
   }
 }
 

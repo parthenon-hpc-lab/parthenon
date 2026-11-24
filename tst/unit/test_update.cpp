@@ -26,6 +26,13 @@
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 
+namespace {
+struct FluxField : parthenon::variable_names::base_t<false> {
+  KOKKOS_INLINE_FUNCTION explicit FluxField(int component = 0) : base_t(component) {}
+  static std::string name() { return "field"; }
+};
+} // namespace
+
 TEST_CASE("Flux divergence helper supports sparse and legacy packs",
           "[Update][SparsePack]") {
   const int ndim = GENERATE(1, 2, 3);
@@ -67,6 +74,9 @@ TEST_CASE("Flux divergence helper supports sparse and legacy packs",
   auto desc = parthenon::MakePackDescriptor(pkg.get(), std::vector<std::string>{"field"},
                                             {}, {parthenon::PDOpt::WithFluxes});
   const auto pack = desc.GetPack(&mesh_data);
+  const auto typed = parthenon::MakePackDescriptor<FluxField>(
+                         pkg.get(), {}, {parthenon::PDOpt::WithFluxes})
+                         .GetPack(&mesh_data);
   auto flat_desc = parthenon::MakePackDescriptor(
       pkg.get(), std::vector<std::string>{"field"}, {},
       {parthenon::PDOpt::WithFluxes, parthenon::PDOpt::Flatten});
@@ -107,12 +117,16 @@ TEST_CASE("Flux divergence helper supports sparse and legacy packs",
             }
             const parthenon::Real sparse_result =
                 parthenon::Update::FluxDivHelper(b, v, k, j, i, ndim, coords, pack);
+            const parthenon::Real typed_result = parthenon::Update::FluxDivHelper(
+                b, FluxField(v), k, j, i, ndim, coords, typed);
             const parthenon::Real legacy_result =
                 parthenon::Update::FluxDivHelper(v, k, j, i, ndim, coords, legacy);
             // A flattened sparse pack exercises the generalized no-block overload.
             const parthenon::Real flat_result = parthenon::Update::FluxDivHelper(
                 flat_lo + v, k, j, i, ndim, coords, flat);
             if (!(std::abs(sparse_result - expected) <= tol * (1 + std::abs(expected))))
+              ++ltot;
+            if (!(std::abs(typed_result - expected) <= tol * (1 + std::abs(expected))))
               ++ltot;
             if (!(std::abs(legacy_result - expected) <= tol * (1 + std::abs(expected))))
               ++ltot;

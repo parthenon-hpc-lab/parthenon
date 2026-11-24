@@ -40,7 +40,8 @@ KOKKOS_INLINE_FUNCTION parthenon::Real InterpolationValue(const int b, const int
 }
 } // namespace
 
-TEST_CASE("Sparse pack linear interpolation", "[Interpolation][SparsePack]") {
+TEST_CASE("Linear interpolation with sparse and legacy packs",
+          "[Interpolation][SparsePack]") {
   namespace linear = parthenon::interpolation::cent::linear;
   const int ndim = GENERATE(1, 2, 3);
   const bool constant = GENERATE(false, true);
@@ -78,6 +79,8 @@ TEST_CASE("Sparse pack linear interpolation", "[Interpolation][SparsePack]") {
   parthenon::MeshData<parthenon::Real> mesh_data("base", blocks, nullptr);
   auto desc = parthenon::MakePackDescriptor(pkg.get(), std::vector<std::string>{"field"});
   const auto pack = desc.GetPack(&mesh_data);
+  const parthenon::PackIdx field(desc.GetMap()["field"]);
+  const auto legacy = mesh_data.PackVariables(std::vector<std::string>{"field"});
   const auto ib = blocks[0]->cellbounds.GetBoundsI(parthenon::IndexDomain::entire);
   const auto jb = blocks[0]->cellbounds.GetBoundsJ(parthenon::IndexDomain::entire);
   const auto kb = blocks[0]->cellbounds.GetBoundsK(parthenon::IndexDomain::entire);
@@ -118,13 +121,18 @@ TEST_CASE("Sparse pack linear interpolation", "[Interpolation][SparsePack]") {
                        : 0.;
           for (int v = 0; v < NCOMP; ++v) {
             const parthenon::Real expected = InterpolationValue(b, v, x, y, z, constant);
-            const parthenon::Real direct =
-                ndim == 1   ? linear::Do1D(b, x, pack, v, ncells)
-                : ndim == 2 ? linear::Do2D(b, x, y, pack, v, ncells)
-                            : linear::Do3D(b, x, y, z, pack, v, ncells);
-            const parthenon::Real dispatched = linear::Do(b, x, y, z, pack, v, ncells);
+            const parthenon::Real direct = ndim == 1 ? linear::Do1D(b, x, pack, v)
+                                           : ndim == 2
+                                               ? linear::Do2D(b, x, y, pack, v)
+                                               : linear::Do3D(b, x, y, z, pack, v);
+            const parthenon::Real dispatched = linear::Do(b, x, y, z, pack, v);
+            const parthenon::Real indexed = linear::Do(b, x, y, z, pack, field + v);
+            const parthenon::Real legacy_result = linear::Do(b, x, y, z, legacy, v);
             if (!(std::abs(direct - expected) <= tol * (1 + std::abs(expected)))) ++ltot;
             if (!(std::abs(dispatched - expected) <= tol * (1 + std::abs(expected))))
+              ++ltot;
+            if (!(std::abs(indexed - expected) <= tol * (1 + std::abs(expected)))) ++ltot;
+            if (!(std::abs(legacy_result - expected) <= tol * (1 + std::abs(expected))))
               ++ltot;
           }
         }
