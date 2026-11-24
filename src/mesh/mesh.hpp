@@ -505,6 +505,19 @@ class Mesh {
   bool GatherCostListAndCheckBalance();
   void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                        int ntot);
+  void SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs,
+                           const BlockList_t &new_blocks, int nbs,
+                           const std::vector<LogicalLocation> &newloc,
+                           const std::vector<int> &newrank,
+                           const std::unordered_map<LogicalLocation, int> &old_gid_of,
+                           const std::unordered_map<LogicalLocation, int> &new_gid_of);
+  void ExchangeRemeshCounters_(const BlockList_t &old_blocks, int onbs,
+                               const BlockList_t &new_blocks, int nbs,
+                               const std::vector<int> &oldtonew,
+                               const std::vector<int> &newtoold,
+                               const std::vector<LogicalLocation> &newloc,
+                               const std::vector<int> &newrank);
+  static constexpr const char *remesh_counter_comm_label = "parthenon::remesh_counters";
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();
 
