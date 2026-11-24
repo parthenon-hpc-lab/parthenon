@@ -92,7 +92,12 @@ CoalescedBuffer::CoalescedBuffer(bool sender, int partition_tag, int lane, int o
       coalesced_comm_buffer(
           CoalescedDataTag(pmesh, b_type, partition_tag, lane),
           sender ? Globals::my_rank : other_rank, sender ? other_rank : Globals::my_rank,
-          comm, [](int size) { return buf_t("Combined Buffer", 2 * size); }, true),
+          comm,
+          [](int size) {
+            return buf_t(Kokkos::view_alloc(Kokkos::WithoutInitializing, "Combined Buffer"),
+                         2 * size);
+          },
+          true),
       sparse_status_buffer(
           CoalescedDataTag(pmesh, b_type, partition_tag, lane) + 1,
           sender ? Globals::my_rank : other_rank, sender ? other_rank : Globals::my_rank,
@@ -342,6 +347,16 @@ void CoalescedBuffer::AddVarBoundary(BndId &bnd_id) {
   current_size += bnd_id.size(); // This will be the maximum size of communication since
                                  // it includes all variables
   all_vars.insert(bnd_id.var_id());
+  has_sparse = has_sparse || pbuf->IsSparseReceiver();
+}
+
+void CoalescedBuffer::SetReceiveSizeBounds() {
+  PARTHENON_REQUIRE(!sender, "Only receiving buffers have size bounds.");
+  // Post the receives without probing first. With only dense variables every message has
+  // the full size, so allocating the bound costs nothing; with sparse ones the bound is
+  // only used when an earlier message left a large enough buffer.
+  coalesced_comm_buffer.SetReceiveSizeBound(current_size, !has_sparse);
+  sparse_status_buffer.SetReceiveSizeBound(static_cast<int>(TotalBuffers()), true);
 }
 
 void CoalescedBuffer::AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
@@ -415,6 +430,7 @@ bool CoalescedBuffersRank::TryReceiveBufInfo() {
         coal_buf.AddVarBoundary(bnd_id);
         idx += BndId::NDAT;
       }
+      coal_buf.SetReceiveSizeBounds();
     }
     message.Stale();
 

@@ -65,6 +65,11 @@ class CommBuffer {
   using buf_base_t = std::remove_pointer_t<decltype(std::declval<T>().data())>;
   buf_base_t null_buf_ = std::numeric_limits<buf_base_t>::signaling_NaN();
   bool active_ = false;
+  // Sparse receivers: known upper bound on the message size and whether a buffer of that
+  // size may be allocated to post the receive before the message arrives (see
+  // SetReceiveSizeBound)
+  int recv_size_bound_ = -1;
+  bool allocate_to_bound_ = false;
 
   get_resource_func_t get_resource_;
 
@@ -125,6 +130,17 @@ class CommBuffer {
   }
 
   bool IsActive() const { return active_; }
+
+  bool IsSparseReceiver() const { return *comm_type_ == BuffCommType::sparse_receiver; }
+
+  // A sparse receiver normally probes for its message to learn the size before posting the
+  // receive, so a large message only starts moving once the receiver polls. Given an upper
+  // bound on the size, the receive is posted right away when the current buffer is large
+  // enough or allocate is true (the bound is then allocated); otherwise it still probes.
+  void SetReceiveSizeBound(int size, bool allocate) {
+    recv_size_bound_ = size;
+    allocate_to_bound_ = allocate;
+  }
 
   BufferState GetState() { return *state_; }
 
@@ -199,6 +215,7 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
       started_irecv_(in.started_irecv_), nrecv_tries_(in.nrecv_tries_),
       my_request_(in.my_request_), tag_(in.tag_), send_rank_(in.send_rank_),
       recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_),
+      recv_size_bound_(in.recv_size_bound_), allocate_to_bound_(in.allocate_to_bound_),
       get_resource_(in.get_resource_) {
   my_rank = Globals::my_rank;
 }
@@ -238,6 +255,8 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
   recv_rank_ = in.recv_rank_;
   comm_ = in.comm_;
   active_ = in.active_;
+  recv_size_bound_ = in.recv_size_bound_;
+  allocate_to_bound_ = in.allocate_to_bound_;
   my_rank = Globals::my_rank;
   get_resource_ = in.get_resource_;
   return *this;
@@ -327,6 +346,16 @@ void CommBuffer<T>::TryStartReceive() noexcept {
         "Cannot have another pending request in a buffer that is starting to receive.");
     // For early start of Irecv, always need storage space even if not used
     if (!IsActive()) Allocate(-1);
+    PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
+                                  MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
+                                  my_request_.get()));
+    *started_irecv_ = true;
+  } else if (*comm_type_ == BuffCommType::sparse_receiver && !*started_irecv_ &&
+             recv_size_bound_ > 0 &&
+             (allocate_to_bound_ || (active_ && buf_.size() >= recv_size_bound_))) {
+    // The message fits in a buffer of the bound, so post the receive without probing. A
+    // null message (size zero) leaves the buffer allocated.
+    if (!active_ || buf_.size() < recv_size_bound_) Allocate(recv_size_bound_);
     PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
                                   my_request_.get()));

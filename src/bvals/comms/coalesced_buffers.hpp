@@ -63,6 +63,8 @@ struct CoalescedBuffer {
   CommBuffer<buf_t> coalesced_comm_buffer;
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
+  // Whether any of the variable-boundary buffers belongs to a sparse variable
+  bool has_sparse{false};
 
   // Tracing of the exchange in flight (see utils/comms_trace.hpp)
   comms_trace::ExchangeRecord trace_rec;
@@ -88,6 +90,9 @@ struct CoalescedBuffer {
 
   void AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
                       const std::shared_ptr<Variable<Real>> &var);
+
+  // Receivers: lets the receives be posted before the messages arrive
+  void SetReceiveSizeBounds();
 
   bool IsAvailableForWrite() {
     const bool available = sparse_status_buffer.IsAvailableForWrite() &&
