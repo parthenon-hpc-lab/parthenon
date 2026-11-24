@@ -59,7 +59,13 @@ done
 
 if [ ! -f kt-install/lib/libkp_space_time_stack.so ]; then
   echo "== Kokkos Tools"
-  [ -d kokkos-tools ] || git clone https://github.com/kokkos/kokkos-tools.git kokkos-tools
+  # Clone the same way this repo was cloned (some machines only allow ssh to GitHub);
+  # KT_URL overrides
+  case "$(git -C "$REPO" remote get-url origin)" in
+    git@github.com:*) KT_DEFAULT=git@github.com:kokkos/kokkos-tools.git ;;
+    *) KT_DEFAULT=https://github.com/kokkos/kokkos-tools.git ;;
+  esac
+  [ -d kokkos-tools ] || git clone "${KT_URL:-$KT_DEFAULT}" kokkos-tools
   git -C kokkos-tools checkout -q 1c344db04337dcb2aa1566b2a8fee93e9c9f7820
   # Report kernels down to 0.1% of the total instead of 10%, so the remesh kernels show
   sed -i 's/^double output_threshold = 0.1;/double output_threshold = 0.001;/' \
