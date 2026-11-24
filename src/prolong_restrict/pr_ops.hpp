@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2023 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -16,6 +16,7 @@
 // the public, perform publicly and display publicly, and to permit others to do
 // so.
 //========================================================================================
+// This file was made in part with generative AI.
 
 #ifndef PROLONG_RESTRICT_PR_OPS_HPP_
 #define PROLONG_RESTRICT_PR_OPS_HPP_
@@ -420,21 +421,40 @@ struct ProlongateInternalTothAndRoe {
       // Here, we write the update for the x-component of the B-field and recover the
       // other components by cyclic permutation
       constexpr int element_idx = static_cast<int>(fel) % 3;
-      auto get_fine_permuted = [&](int eidx, int ok, int oj, int oi) -> Real & {
+      using iarr2 = std::array<int, 2>;
+      using iarr4 = std::array<int, 4>;
+      // Returns {element index, k, j, i} of a fine face in the permuted frame
+      auto fine_index = [&](int eidx, int ok, int oj, int oi) -> iarr4 {
         eidx = (element_idx + eidx) % 3;
         // Guard against offsetting in symmetry dimensions
         constexpr int g3 = (DIM > 2);
         constexpr int g2 = (DIM > 1);
         if constexpr (fel == TE::F1) {
-          return (*pfine)(eidx, l, m, n, fk + ok * g3, fj + oj * g2, fi + oi);
+          return {eidx, fk + ok * g3, fj + oj * g2, fi + oi};
         } else if constexpr (fel == TE::F2) {
-          return (*pfine)(eidx, l, m, n, fk + oj * g3, fj + oi * g2, fi + ok);
+          return {eidx, fk + oj * g3, fj + oi * g2, fi + ok};
         } else {
-          return (*pfine)(eidx, l, m, n, fk + oi * g3, fj + ok * g2, fi + oj);
+          return {eidx, fk + oi * g3, fj + ok * g2, fi + oj};
         }
       };
+      auto get_fine_permuted = [&](int eidx, int ok, int oj, int oi) -> Real & {
+        const auto [e, fk_, fj_, fi_] = fine_index(eidx, ok, oj, oi);
+        return (*pfine)(e, l, m, n, fk_, fj_, fi_);
+      };
+      auto area_fine_permuted = [&](int eidx, int ok, int oj, int oi) -> Real {
+        const auto [e, fk_, fj_, fi_] = fine_index(eidx, ok, oj, oi);
+        return coords.Volume(CellLevel::same,
+                             static_cast<TE>(static_cast<int>(TE::F1) + e), fk_, fj_,
+                             fi_);
+      };
+      // The prolongation is performed on face fluxes (field times fine face area),
+      // so that the fine cells are discretely divergence free for any cell aspect
+      // ratio and any coordinate system. For cubic Cartesian cells this reduces to
+      // the original Toth & Roe (2002) operation on the field values.
+      auto flux_fine_permuted = [&](int eidx, int ok, int oj, int oi) -> Real {
+        return get_fine_permuted(eidx, ok, oj, oi) * area_fine_permuted(eidx, ok, oj, oi);
+      };
 
-      using iarr2 = std::array<int, 2>;
       auto sg = [](int offset) -> Real { return offset == 0 ? -1.0 : 1.0; };
       Real Uxx{0.0};
       Real Vxyz{0.0};
@@ -443,8 +463,8 @@ struct ProlongateInternalTothAndRoe {
         // Note step size of 2 for the direction normal to the eidx2/eidx3
         for (const int u : iarr2{0, 2}) {
           for (const int t : iarr2{0, 1}) {
-            const auto fine2 = get_fine_permuted(1, v, u, t);
-            const auto fine3 = get_fine_permuted(2, u, v, t);
+            const auto fine2 = flux_fine_permuted(1, v, u, t);
+            const auto fine3 = flux_fine_permuted(2, u, v, t);
             Uxx += sg(t) * sg(u) * (fine2 + fine3);
             Vxyz += sg(t) * sg(u) * sg(v) * fine2;
             Wxyz += sg(t) * sg(u) * sg(v) * fine3;
@@ -463,9 +483,10 @@ struct ProlongateInternalTothAndRoe {
 
       for (int ok : iarr2{0, 1}) {
         for (int oj : iarr2{0, 1}) {
-          get_fine_permuted(0, ok, oj, 1) =
-              0.5 * (get_fine_permuted(0, ok, oj, 0) + get_fine_permuted(0, ok, oj, 2)) +
-              Uxx + sg(ok) * Vxyz + sg(oj) * Wxyz;
+          get_fine_permuted(0, ok, oj, 1) = (0.5 * (flux_fine_permuted(0, ok, oj, 0) +
+                                                    flux_fine_permuted(0, ok, oj, 2)) +
+                                             Uxx + sg(ok) * Vxyz + sg(oj) * Wxyz) /
+                                            area_fine_permuted(0, ok, oj, 1);
         }
       }
     }
