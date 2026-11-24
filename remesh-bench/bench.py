@@ -99,9 +99,11 @@ MACHINES = {
     # 2 x 56-core Sapphire Rapids per node, hyperthreading on. Each rank gets one core
     # (both hyperthreads, -c 2) so the progress thread variants can pin their thread to
     # the sibling. Cases that need more nodes than the allocation has are skipped.
-    "rocinante": dict(pairs=[("b32", 1), ("b32", 8), ("b32m", 56), ("b32m", 112),
-                             ("b32m", 224), ("b32l", 448), ("b32l", 896), ("b64", 8),
-                             ("b64", 56), ("b64m", 448), ("b64m", 896)],
+    # Pairs keep runs to about a minute: 4-50 blocks per rank. Remesh count depends only
+    # on cycles, so heavier per-rank loads only add time between remeshes.
+    "rocinante": dict(pairs=[("b32", 8), ("b32m", 56), ("b32m", 112), ("b32m", 224),
+                             ("b32l", 448), ("b32l", 896), ("b64", 56), ("b64", 112),
+                             ("b64m", 448), ("b64m", 896)],
                       coalesced=[False, True], num_vars=[1, 4], vec_size=[1], nlim=[200],
                       launcher="srun", ranks_per_node=112,
                       mpi_args=["-c", "2", "--cpu-bind=cores", "--kill-on-bad-exit=1"],

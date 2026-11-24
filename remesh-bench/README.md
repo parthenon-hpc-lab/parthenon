@@ -9,12 +9,12 @@ Benchmark-only tooling, on the benchmark branch `lroberts36/remesh-bvals-merge-b
     cd parthenon-bench/remesh-bench
     rocinante/setup.sh                       # worktrees, timer patch, 3 builds, Kokkos Tools
     sbatch -N 1 -t 0:30:00 -p <partition> rocinante/bench.sbatch --only b32 --ranks 8 --reps 1
-    sbatch -N 4 -p <partition> rocinante/bench.sbatch           # main sweep, ~3-4 h
-    sbatch -N 8 -t 12:00:00 -p <partition> rocinante/bench.sbatch --only b32l b64m  # adds 896 ranks
+    sbatch -A xd -p standard -N 1 -t 3:00:00 rocinante/bench.sbatch --ranks 8 56 112      # ~1.5 h
+    sbatch -A xd -p standard -N 8 -t 2:00:00 rocinante/bench.sbatch --ranks 224 448 896   # ~45 min
 - Modules are in `rocinante/env.sh` (PrgEnv-intel, cray-mpich, craype-x86-spr, cmake 3.31.6,
   cray-python). Kokkos 5 needs C++20; `setup.sh` checks that and suggests PrgEnv-gnu if not.
 - `--machine rocinante` (`MACHINES` in `bench.py`): shapes b32 (128^3), b32m (256^3), b32l
-  (512^3), b64 (256^3), b64m (512^3), at 1-896 ranks, 112 ranks per node with `-c 2
+  (512^3), b64 (256^3), b64m (512^3), at 8-896 ranks (runs of about a minute or less), 112 ranks per node with `-c 2
   --cpu-bind=cores` (a core, both hyperthreads, per rank). Default variants develop, pr_rw,
   merge, merge_pt; num_vars 1 and 4; coalesced on/off; nlim 200; 2 reps from the sbatch.
 - The RSS watchdog cannot see ranks on other nodes, so on Slurm only the per-run timeout
