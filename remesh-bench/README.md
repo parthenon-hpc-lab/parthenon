@@ -32,7 +32,8 @@ Benchmark-only tooling, on the benchmark branch `lroberts36/remesh-bvals-merge-b
   Prints one `REMESH_TIMING` line per remesh: per-span times (max over ranks), block counts
   (moved/refined/derefined/cross-rank), and `msgs_<span>`/`bytes_<span>` (summed over ranks)
   from a PMPI `MPI_Isend` shim. Spans: `d_*` develop only (restrict, send, recv), `p_*` PR only
-  (nbrs, halo, reset, tagmap, bufs, cinfo, post, send, recv, unpack, sendwait, counters),
+  (nbrs, halo, reset, tagmap, bufs, cinfo, post, send, alloc, recv, unpack, sendwait,
+  counters),
   `f_*` shared finalize, plus lb, build, prolong, wait. `bench.py` groups `d_*`/`p_*` as
   `xfer` and `f_*` as `fin`.
 - `build-develop/`, `build-pr/`, `build-merge/` – Release, MPI, Kokkos Serial, no HDF5.
@@ -99,3 +100,17 @@ Rebuilding after a branch moves:
 grew host memory without bound (~0.6 GB/cycle; `opal_free_list_grow_st` <-
 `mca_btl_sm_frag_alloc` from `MPI_Iprobe`/`MPI_Test` in halo exchange). This is what took the
 Mac to ~300 GB. With the flag, np4 nv4 vs4 peaks at ~3.5 GB. `PROBE_MPI_ARGS` overrides.
+
+## Deferred allocation (bench branch, 2026-11-23)
+- New blocks are made with `MeshBlock::Make(..., defer_allocation=true)` (variables but no
+  data, no application data) and allocated by `AllocateDeferred` from a callback in
+  `ExchangeBoundaryBuffers` after the remesh sends are posted (span `p_alloc`; `build` is
+  now just block metadata). Coalesced receives are posted (`TryReceiveAny`) right after
+  `StartReceiveBoundBufs`.
+- The counters exchange wraps the field data exchange (posted before it, waited after), so
+  `p_counters` is only the Waitall and unpack.
+- Non-coalesced sends send the packed size (`BndInfo::size()`), not the pool capacity.
+- The send wait is now `parthenon/mesh/remesh_wait_for_sends` (default false, like
+  develop); variant `merge_rw` sets it. On the Mac (Open MPI sm) merge without it stalls
+  ~5-10 ms in `p_recv` as before; `results-deferred/` has the np4 matrix, all histories
+  identical to develop.

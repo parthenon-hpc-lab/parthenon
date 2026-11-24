@@ -19,11 +19,42 @@ if "bench_remesh_timer.hpp" in text:
     sys.exit(f"{target} is already patched")
 
 is_pr = "SetRemeshNeighbors_" in text
+# Merge branch with deferred new block allocation: ExchangeBoundaryBuffers posts coalesced
+# receives, allocates the new blocks after its sends, and waits for its sends optionally
+deferred = "if (after_send) after_send();" in text
 # The merge branch waits for its remesh sends in ExchangeBoundaryBuffers itself; the PR
 # only does so with the BENCH_WAIT_SENDS experiment inserted below
-has_send_wait = "Wait for our own sends as well" in text
+has_send_wait = "ait for our own sends as well" in text
 
-if is_pr:
+if is_pr and deferred:
+    marks = [("    if (pmesh->do_coalesced_comms)\n"
+              "      pmesh->pcoalesced_comms->TryReceiveAny(md_recv.get(), RECV);\n"
+              "  }\n", "p_post"),
+             ("  if (after_send) after_send();\n", "p_alloc"),
+             ('  PARTHENON_REQUIRE(iters < max_it, "Remesh communication did not complete.");\n',
+              None)]
+    for anchor, span in marks:
+        if text.count(anchor) != 1:
+            sys.exit(f"ExchangeBoundaryBuffers anchor not found verbatim: {anchor!r}")
+    for anchor, span in marks[:2]:
+        text = text.replace(anchor, anchor + f"  bench::MarkCurrent(bench::{span});\n")
+    # p_send closes the send loop, p_recv the receive loop (before SetBounds)
+    send_end = ("    while (SendBoundBufs<SEND>(md_send) != TaskStatus::complete && ++iters < max_it) {\n"
+                "    }\n  }\n")
+    recv_end = ("    while (ReceiveBoundBufs<RECV>(md_recv) != TaskStatus::complete && ++iters < max_it) {\n"
+                "    }\n    SetBounds<RECV>(md_recv);\n  }\n")
+    for anchor in (send_end, recv_end):
+        if text.count(anchor) != 1:
+            sys.exit(f"ExchangeBoundaryBuffers anchor not found verbatim: {anchor!r}")
+    text = text.replace(send_end, send_end + "  bench::MarkCurrent(bench::p_send);\n")
+    text = text.replace(recv_end, recv_end.replace(
+        "    SetBounds<RECV>(md_recv);\n  }\n",
+        "  }\n  bench::MarkCurrent(bench::p_recv);\n"
+        "  if (have_recv) SetBounds<RECV>(md_recv);\n"
+        "  bench::MarkCurrent(bench::p_unpack);\n"))
+    req = marks[2][0]
+    text = text.replace(req, "  bench::MarkCurrent(bench::p_sendwait);\n" + req)
+elif is_pr:
     # Split the exchange into post / pack+send / wait / unpack, with the marks outside
     # the per-rank have_send/have_recv conditions
     old = ("  if (have_recv) StartReceiveBoundBufs<RECV>(md_recv);\n"
@@ -133,7 +164,7 @@ if is_pr:
     mark_after(i, "p_bufs")
     i = find(r"^    ExchangeCoalescedBufferInfo\(this\);$", t)
     mark_after(i, "p_cinfo")
-    a = find(r"ExchangeRemeshCounters_\(block_list", t)
+    a = find(r"^    ExchangeRemeshCounters_\(", t)
     i = find(r"^    Kokkos::fence\(\);$", a)
     mark_after(i, "p_counters")
 else:
@@ -172,5 +203,6 @@ for idx, txt in sorted(inserts, key=lambda x: x[0], reverse=True):
     lines.insert(idx, txt)
 target.write_text("".join(lines))
 shutil.copy(Path(__file__).with_name("bench_remesh_timer.hpp"), src / "src/mesh/")
-layout = ("merge" if has_send_wait else "PR") if is_pr else "develop"
+layout = (("merge deferred" if deferred else "merge") if has_send_wait else "PR") \
+    if is_pr else "develop"
 print(f"patched {target} ({layout} layout)")

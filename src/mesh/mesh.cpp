@@ -107,6 +107,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           "parthenon/mesh", "coalesced_wait_for_sends", false,
           "Keep polling MPI in coalesced receive tasks until this rank's coalesced "
           "sends have completed")},
+      remesh_wait_for_sends{pin->GetOrAddBoolean(
+          "parthenon/mesh", "remesh_wait_for_sends", false,
+          "Wait for this rank's remesh field data sends to complete before leaving the "
+          "remesh exchange")},
       nbuf_add_{pin->GetOrAddInteger(
           "parthenon/mesh", "comm_buffer_chunk_size", -1,
           "Number of comm buffers to allocate when more are required. Default is a "

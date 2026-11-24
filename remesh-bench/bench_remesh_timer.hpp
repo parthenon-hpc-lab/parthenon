@@ -48,6 +48,7 @@ namespace bench {
   X(p_cinfo)                                                                             \
   X(p_post)                                                                              \
   X(p_send)                                                                              \
+  X(p_alloc)                                                                             \
   X(p_recv)                                                                              \
   X(p_unpack)                                                                            \
   X(p_sendwait)                                                                          \

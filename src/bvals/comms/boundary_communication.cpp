@@ -187,8 +187,12 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
 #endif
   for (std::size_t ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
+    // Only send the packed part of the buffer, buffers are sized for the largest
+    // boundary of their kind
+    const int packed_size = cache.bnd_info_h(ibuf).size();
+    const int send_size = packed_size > 0 ? packed_size : -1;
     if (!Globals::sparse_config.enabled) {
-      buf.Send(coal_comm);
+      buf.Send(coal_comm, send_size);
     } else {
       // Reduce flags over all of the teams that contributed to filling a given buffer
       bool sending_nonz{false};
@@ -196,7 +200,7 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
         sending_nonz = sending_nonz || sending_nonzero_flags_h(i);
 
       if (sending_nonz) {
-        buf.Send(coal_comm);
+        buf.Send(coal_comm, send_size);
       } else {
         buf.SendNull(coal_comm);
       }

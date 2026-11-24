@@ -171,6 +171,9 @@ class Mesh {
   // Don't complete a coalesced receive task until this rank's coalesced sends for the
   // same partition and boundary type have completed
   const bool coalesced_wait_for_sends;
+  // Wait for the remesh field data sends inside the exchange rather than when the
+  // communication infrastructure is next reset
+  const bool remesh_wait_for_sends;
 
   BlockList_t block_list;
   Packages_t packages;
@@ -517,7 +520,8 @@ class Mesh {
                                const std::vector<int> &oldtonew,
                                const std::vector<int> &newtoold,
                                const std::vector<LogicalLocation> &newloc,
-                               const std::vector<int> &newrank);
+                               const std::vector<int> &newrank,
+                               const std::function<void()> &overlapped_work);
   static constexpr const char *remesh_counter_comm_label = "parthenon::remesh_counters";
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();

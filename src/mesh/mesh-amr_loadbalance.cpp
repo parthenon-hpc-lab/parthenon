@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -91,29 +92,39 @@ void ExchangeCoalescedBufferInfo(Mesh *pmesh) {
 
 // Run one complete exchange over already-built channels: post receives, pack and send
 // (restricting first where the receiver is coarser), wait for all receives, and unpack.
+// after_send runs once the sends are posted and before anything is received, so it can
+// overlap with the communication; it must leave the receiving blocks allocated.
 template <BoundaryType SEND, BoundaryType RECV>
 void ExchangeBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md_send,
-                             std::shared_ptr<MeshData<Real>> &md_recv) {
+                             std::shared_ptr<MeshData<Real>> &md_recv,
+                             bool wait_for_sends,
+                             const std::function<void()> &after_send = {}) {
+  Mesh *pmesh = md_send->GetMeshPointer();
   const bool have_send = md_send->NumBlocks() > 0;
   const bool have_recv = md_recv->NumBlocks() > 0;
   constexpr std::int64_t max_it = 1e10;
-  if (have_recv) StartReceiveBoundBufs<RECV>(md_recv);
+  if (have_recv) {
+    StartReceiveBoundBufs<RECV>(md_recv);
+    // Coalesced receives are only posted when polled
+    if (pmesh->do_coalesced_comms)
+      pmesh->pcoalesced_comms->TryReceiveAny(md_recv.get(), RECV);
+  }
   std::int64_t iters = 0;
   if (have_send) {
     while (SendBoundBufs<SEND>(md_send) != TaskStatus::complete && ++iters < max_it) {
     }
   }
+  if (after_send) after_send();
   if (have_recv) {
     while (ReceiveBoundBufs<RECV>(md_recv) != TaskStatus::complete && ++iters < max_it) {
     }
     SetBounds<RECV>(md_recv);
   }
-  // Wait for our own sends as well, as the point-to-point remesh did with MPI_Waitall.
-  // Some MPI implementations only progress rendezvous sends while the sender is inside
-  // MPI, so returning with sends in flight can stall the receiving ranks while this rank
-  // does MPI-free work after the exchange
-  if (have_send) {
-    Mesh *pmesh = md_send->GetMeshPointer();
+  // Optionally wait for our own sends as well. Some MPI implementations only progress
+  // rendezvous sends while the sender is inside MPI, so returning with sends in flight can
+  // stall the receiving ranks while this rank does MPI-free work after the exchange.
+  // Otherwise the sends are completed when the communication infrastructure is reset.
+  if (have_send && wait_for_sends) {
     auto &cache = md_send->GetBvarsCache().GetSubCache(SEND, true);
     bool done = false;
     while (!done && ++iters < max_it) {
@@ -224,15 +235,20 @@ void Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs,
 //----------------------------------------------------------------------------------------
 // \brief Same-level moves between ranks also carry per-block and per-variable counters
 // (derefinement count, sparse deallocation counters) that are not field data. They are
-// exchanged here in one integer message per pair of ranks.
+// exchanged here in one integer message per pair of ranks, in flight while
+// overlapped_work (the field data exchange) runs. They are set on the new blocks after
+// overlapped_work.
 
 void Mesh::ExchangeRemeshCounters_(const BlockList_t &old_blocks, int onbs,
                                    const BlockList_t &new_blocks, int nbs,
                                    const std::vector<int> &oldtonew,
                                    const std::vector<int> &newtoold,
                                    const std::vector<LogicalLocation> &newloc,
-                                   const std::vector<int> &newrank) {
-#ifdef MPI_PARALLEL
+                                   const std::vector<int> &newrank,
+                                   const std::function<void()> &overlapped_work) {
+#ifndef MPI_PARALLEL
+  overlapped_work();
+#else
   const auto sorted_labels = [](const MeshBlock *pmb) {
     std::vector<std::string> labels;
     for (const auto &v : pmb->vars_cc_)
@@ -278,6 +294,7 @@ void Mesh::ExchangeRemeshCounters_(const BlockList_t &old_blocks, int onbs,
     PARTHENON_MPI_CHECK(
         MPI_Isend(buf.data(), buf.size(), MPI_INT, rank, 0, comm, &reqs.back()));
   }
+  overlapped_work();
   PARTHENON_MPI_CHECK(MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE));
 
   for (auto &[rank, blocks] : recv_blocks) {
@@ -702,12 +719,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         // on the same MPI rank and same location -> just move it
         new_block_list[n - nbs] = FindMeshBlock(on);
       } else {
-        // on a different refinement level or MPI rank - create a new block
+        // on a different refinement level or MPI rank - create a new block. Its data
+        // is allocated while the remesh sends are in flight, see below
         BoundaryFlag block_bcs[6];
         SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
         new_block_list[n - nbs] =
             MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
-                            app_in, packages, resolved_packages, gflag);
+                            app_in, packages, resolved_packages, gflag, 1.0,
+                            /*defer_allocation=*/true);
         // Newly created blocks are identified by an offset gid while communicating from
         // the old mesh, so that they are distinct from the old blocks
         new_block_list[n - nbs]->gid = n + nbtold;
@@ -740,7 +759,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       BuildRemeshHaloBuffers(md_old);
       ExchangeCoalescedBufferInfo(this);
       ExchangeBoundaryBuffers<BoundaryType::remesh_halo, BoundaryType::remesh_halo>(
-          md_old, md_old);
+          md_old, md_old, true);
       if (md_old->NumBlocks() > 0) {
         ProlongateBounds<BoundaryType::remesh_halo>(md_old);
         ProlongateInternalBounds<BoundaryType::remesh_halo>(md_old);
@@ -754,10 +773,17 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     tag_map.ResolveMap();
     BuildRemeshBoundaryBuffers(md_old, md_new);
     ExchangeCoalescedBufferInfo(this);
-    ExchangeBoundaryBuffers<BoundaryType::remesh_send, BoundaryType::remesh_recv>(md_old,
-                                                                                  md_new);
-    ExchangeRemeshCounters_(block_list, onbs, new_block_list, nbs, oldtonew, newtoold,
-                            newloc, newrank);
+    // Allocating the new blocks is expensive, so do it while the sends are in flight
+    const auto allocate_new_blocks = [&]() {
+      for (auto &pmb : new_block_list)
+        pmb->AllocateDeferred(pin);
+    };
+    ExchangeRemeshCounters_(
+        block_list, onbs, new_block_list, nbs, oldtonew, newtoold, newloc, newrank,
+        [&]() {
+          ExchangeBoundaryBuffers<BoundaryType::remesh_send, BoundaryType::remesh_recv>(
+              md_old, md_new, remesh_wait_for_sends, allocate_new_blocks);
+        });
     Kokkos::fence();
   }
 
@@ -864,7 +890,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         BuildRemeshHaloBuffers(md_new);
         ExchangeCoalescedBufferInfo(this);
         ExchangeBoundaryBuffers<BoundaryType::remesh_halo, BoundaryType::remesh_halo>(
-            md_new, md_new);
+            md_new, md_new, true);
         if (md_new->NumBlocks() > 0) ProlongateBounds<BoundaryType::remesh_halo>(md_new);
       }
 

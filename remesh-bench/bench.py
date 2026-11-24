@@ -37,9 +37,13 @@ VARIANTS = {
     "pr": (HERE / "build-pr", {}, {}),
     # BENCH_WAIT_SENDS: ExchangeBoundaryBuffers waits for its remesh sends
     "pr_rw": (HERE / "build-pr", {}, {"BENCH_WAIT_SENDS": "1"}),
-    # remesh-bvals-channels merged with faster-coalesced-comms (always waits for its
-    # remesh sends, so it corresponds to pr_rw)
+    # remesh-bvals-channels merged with faster-coalesced-comms, new blocks allocated while
+    # the remesh sends are in flight, counters overlapped with the field data, packed size
+    # sent; leaves its remesh sends in flight like develop
     "merge": (HERE / "build-merge", {}, {}),
+    # ... waiting for its remesh sends inside the exchange (corresponds to pr_rw)
+    "merge_rw": (HERE / "build-merge", {"parthenon/mesh/remesh_wait_for_sends": "true"},
+                 {}),
     # ... plus halo exchange receive tasks wait for this rank's coalesced sends
     "merge_ws": (HERE / "build-merge", {"parthenon/mesh/coalesced_wait_for_sends": "true"},
                  {}),

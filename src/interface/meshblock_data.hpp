@@ -236,10 +236,13 @@ class MeshBlockData {
 
       // This seems to work fine outside the constexpr if, but having it inside is
       // consistent with the old code.
-      Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
-      auto alloc_vars = GetVariablesByFlag(flags);
-      for (auto &v : alloc_vars.vars()) {
-        AllocateSparse(v->label());
+      if (!src->AllocationDeferred()) {
+        Metadata::FlagCollection flags(
+            {Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
+        auto alloc_vars = GetVariablesByFlag(flags);
+        for (auto &v : alloc_vars.vars()) {
+          AllocateSparse(v->label());
+        }
       }
     }
   }
