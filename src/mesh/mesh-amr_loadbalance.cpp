@@ -180,73 +180,102 @@ Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs, int nbs, int 
 //----------------------------------------------------------------------------------------
 // \brief Same-level moves between ranks also carry per-block and per-variable counters
 // (derefinement count, sparse deallocation counters) that are not field data. They are
-// exchanged here in one integer message per pair of ranks.
+// sent in one integer message per pair of ranks, packed for each block as the
+// derefinement count followed by the dealloc count of each remeshed variable in label
+// order. The receives are posted here too; they need only the gids of the new blocks.
 
-void Mesh::ExchangeRemeshCounters_(const BlockList_t &old_blocks, int onbs,
-                                   const BlockList_t &new_blocks, int nbs,
-                                   const std::vector<int> &oldtonew,
-                                   const std::vector<int> &newtoold,
-                                   const std::vector<LogicalLocation> &newloc,
-                                   const std::vector<int> &newrank) {
+namespace {
+std::vector<std::string>
+SortedRemeshLabels(const std::vector<std::shared_ptr<Variable<Real>>> &vars) {
+  std::vector<std::string> labels;
+  for (const auto &v : vars)
+    labels.push_back(v->label());
+  std::sort(labels.begin(), labels.end());
+  return labels;
+}
+} // namespace
+
+Mesh::RemeshCounterBuffers_ Mesh::SendRemeshCounters_(
+    const BlockList_t &old_blocks, int onbs, int nbs, int nbe,
+    const std::vector<int> &oldtonew, const std::vector<int> &newtoold,
+    const std::vector<LogicalLocation> &newloc, const std::vector<int> &newrank) {
+  RemeshCounterBuffers_ counters;
 #ifdef MPI_PARALLEL
-  const auto sorted_labels = [](const MeshBlock *pmb) {
-    std::vector<std::string> labels;
-    for (const auto &v : pmb->vars_cc_)
-      labels.push_back(v->label());
-    std::sort(labels.begin(), labels.end());
-    return labels;
-  };
+  MPI_Comm comm = GetMPIComm(remesh_counter_comm_label);
+  auto get_resource = [](int size) { return std::vector<int>(size); };
 
-  // Pack: for each block, the derefinement count and then the dealloc count of each
-  // remeshed variable in label order
   std::map<int, std::vector<int>> send_data;
   for (int i = 0; i < old_blocks.size(); ++i) {
     const int on = onbs + i;
     const int nn = oldtonew[on];
     if (newloc[nn] != loclist[on] || newrank[nn] == Globals::my_rank) continue;
     auto &pmb = old_blocks[i];
-    auto &buf = send_data[newrank[nn]];
-    buf.push_back(pmb->pmr ? pmb->pmr->DerefinementCount() : 0);
-    for (const auto &label : sorted_labels(pmb.get()))
-      buf.push_back(pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count);
+    auto &data = send_data[newrank[nn]];
+    data.push_back(pmb->pmr ? pmb->pmr->DerefinementCount() : 0);
+    for (const auto &label : SortedRemeshLabels(pmb->vars_cc_))
+      data.push_back(pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count);
+  }
+  for (auto &[rank, data] : send_data) {
+    auto &buf =
+        counters.send
+            .emplace(rank, CommBuffer<std::vector<int>>(0, Globals::my_rank, rank, comm,
+                                                        get_resource))
+            .first->second;
+    buf.Allocate(data.size());
+    buf.buffer() = std::move(data);
+    buf.Send();
   }
 
-  std::map<int, std::vector<int>> recv_data;
-  std::map<int, std::vector<MeshBlock *>> recv_blocks;
-  for (int i = 0; i < new_blocks.size(); ++i) {
-    const int nn = nbs + i;
+  for (int nn = nbs; nn <= nbe; ++nn) {
     const int on = newtoold[nn];
     if (newloc[nn] != loclist[on] || ranklist[on] == Globals::my_rank) continue;
-    recv_blocks[ranklist[on]].push_back(new_blocks[i].get());
+    counters.recv_gids[ranklist[on]].push_back(nn);
   }
-  for (auto &[rank, blocks] : recv_blocks)
-    recv_data[rank].resize(blocks.size() * (1 + blocks[0]->vars_cc_.size()));
-
-  MPI_Comm comm = GetMPIComm(remesh_counter_comm_label);
-  std::vector<MPI_Request> reqs;
-  for (auto &[rank, buf] : recv_data) {
-    reqs.emplace_back();
-    PARTHENON_MPI_CHECK(
-        MPI_Irecv(buf.data(), buf.size(), MPI_INT, rank, 0, comm, &reqs.back()));
-  }
-  for (auto &[rank, buf] : send_data) {
-    reqs.emplace_back();
-    PARTHENON_MPI_CHECK(
-        MPI_Isend(buf.data(), buf.size(), MPI_INT, rank, 0, comm, &reqs.back()));
-  }
-  PARTHENON_MPI_CHECK(MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE));
-
-  for (auto &[rank, blocks] : recv_blocks) {
-    const auto &buf = recv_data[rank];
-    std::size_t idx = 0;
-    for (auto *pmb : blocks) {
-      const int deref = buf[idx++];
-      if (pmb->pmr) pmb->pmr->DerefinementCount() = deref;
-      for (const auto &label : sorted_labels(pmb))
-        pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count = buf[idx++];
+  if (!counters.recv_gids.empty()) {
+    // Every block has the same remeshed variables
+    PARTHENON_REQUIRE(!old_blocks.empty(), "Expected at least one block on each rank.");
+    const int per_block = 1 + old_blocks[0]->vars_cc_.size();
+    for (auto &[rank, gids] : counters.recv_gids) {
+      auto &buf =
+          counters.recv
+              .emplace(rank, CommBuffer<std::vector<int>>(0, rank, Globals::my_rank, comm,
+                                                          get_resource))
+              .first->second;
+      buf.Allocate(gids.size() * per_block);
+      buf.TryStartReceive();
     }
   }
 #endif
+  return counters;
+}
+
+bool Mesh::RemeshCountersSent_(RemeshCounterBuffers_ &counters) {
+  bool sent = true;
+  for (auto &[rank, buf] : counters.send)
+    sent = buf.IsAvailableForWrite() && sent;
+  return sent;
+}
+
+bool Mesh::TryReceiveRemeshCounters_(RemeshCounterBuffers_ &counters) {
+  bool received = true;
+  for (auto &[rank, buf] : counters.recv)
+    received = buf.TryReceive() && received;
+  return received;
+}
+
+void Mesh::SetRemeshCounters_(const RemeshCounterBuffers_ &counters,
+                              const BlockList_t &new_blocks, int nbs) {
+  for (const auto &[rank, gids] : counters.recv_gids) {
+    const auto &data = counters.recv.at(rank).buffer();
+    std::size_t idx = 0;
+    for (const int nn : gids) {
+      auto &pmb = new_blocks[nn - nbs];
+      const int deref = data[idx++];
+      if (pmb->pmr) pmb->pmr->DerefinementCount() = deref;
+      for (const auto &label : SortedRemeshLabels(pmb->vars_cc_))
+        pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count = data[idx++];
+    }
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -722,6 +751,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     BuildRemeshSendBuffers(md_old);
     if (do_coalesced_comms) pcoalesced_comms->ResolveAndSendSendBuffers();
 
+    auto counters = SendRemeshCounters_(block_list, onbs, nbs, nbe, oldtonew, newtoold,
+                                        newloc, newrank);
+
     std::shared_ptr<MeshData<Real>> md_new;
     TaskCollection tc;
     TaskRegion &region = tc.AddRegion(1);
@@ -756,6 +788,19 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           0, GridIdentifier::leaf(), new_block_list, this);
       return BuildRemeshReceiveBuffers(md_new);
     });
+    // Counters of the blocks moving between ranks at the same level
+    tl.AddTask(TaskID(), "RemeshCountersSent", [&]() {
+      return RemeshCountersSent_(counters) ? TaskStatus::complete : TaskStatus::incomplete;
+    });
+    auto counters_recv = tl.AddTask(TaskID(), "ReceiveRemeshCounters", [&]() {
+      return TryReceiveRemeshCounters_(counters) ? TaskStatus::complete
+                                                 : TaskStatus::incomplete;
+    });
+    tl.AddTask(counters_recv | create, "SetRemeshCounters", [&]() {
+      SetRemeshCounters_(counters, new_block_list, nbs);
+      return TaskStatus::complete;
+    });
+
     auto info = create;
     if (do_coalesced_comms) {
       info = tl.AddTask(create, "ReceiveCoalescedBufferInfo", [&]() {
@@ -791,8 +836,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     PARTHENON_REQUIRE(status == TaskListStatus::complete,
                       "Remesh communication failed.");
 
-    ExchangeRemeshCounters_(block_list, onbs, new_block_list, nbs, oldtonew, newtoold,
-                            newloc, newrank);
     Kokkos::fence();
   }
 

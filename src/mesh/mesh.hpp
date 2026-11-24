@@ -511,12 +511,22 @@ class Mesh {
                       const std::vector<int> &newrank,
                       const std::unordered_map<LogicalLocation, int> &old_gid_of,
                       const std::unordered_map<LogicalLocation, int> &new_gid_of);
-  void ExchangeRemeshCounters_(const BlockList_t &old_blocks, int onbs,
-                               const BlockList_t &new_blocks, int nbs,
-                               const std::vector<int> &oldtonew,
-                               const std::vector<int> &newtoold,
-                               const std::vector<LogicalLocation> &newloc,
-                               const std::vector<int> &newrank);
+  // Derefinement and sparse deallocation counters of the blocks that move between ranks
+  // at the same level, by the other rank
+  struct RemeshCounterBuffers_ {
+    std::map<int, CommBuffer<std::vector<int>>> send, recv;
+    std::map<int, std::vector<int>> recv_gids;
+  };
+  RemeshCounterBuffers_ SendRemeshCounters_(const BlockList_t &old_blocks, int onbs,
+                                            int nbs, int nbe,
+                                            const std::vector<int> &oldtonew,
+                                            const std::vector<int> &newtoold,
+                                            const std::vector<LogicalLocation> &newloc,
+                                            const std::vector<int> &newrank);
+  bool RemeshCountersSent_(RemeshCounterBuffers_ &counters);
+  bool TryReceiveRemeshCounters_(RemeshCounterBuffers_ &counters);
+  void SetRemeshCounters_(const RemeshCounterBuffers_ &counters,
+                          const BlockList_t &new_blocks, int nbs);
   static constexpr const char *remesh_counter_comm_label = "parthenon::remesh_counters";
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();
