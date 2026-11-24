@@ -64,8 +64,10 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
         //  same block can show up on two multigrid levels). This doesn't require any data
         //  transfer, so the message size can be zero. It is essentially just a flag to
         //  show that the block is done being used on one level and can be used on the
-        //  next level.
-        if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
+        //  next level. Remesh transfers between an old and a new block that share a gid
+        //  do carry data.
+        if (pmb->gid == nb.gid && nb.offsets.IsCell() && !nb.remesh_transfer)
+          buf_size = 0;
 
         nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
         nbufs_allocated[buf_size] += v->IsAllocated();
@@ -76,7 +78,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
     // See comment above on the same logic.
-    if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
+    if (pmb->gid == nb.gid && nb.offsets.IsCell() && !nb.remesh_transfer) buf_size = 0;
 
     // Add a buffer pool if one does not exist for this size
     using buf_t = buf_pool_t<Real>::base_t;
@@ -227,6 +229,19 @@ TaskStatus RegisterCoalescedCommsGMG(std::shared_ptr<MeshData<Real>> &md) {
   RegisterCoalescedCommsSubset<BoundaryType::gmg_restrict_send>(md);
   RegisterCoalescedCommsSubset<BoundaryType::gmg_restrict_recv>(md);
 
+  return TaskStatus::complete;
+}
+
+TaskStatus BuildRemeshBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md_old,
+                                      std::shared_ptr<MeshData<Real>> &md_new) {
+  PARTHENON_INSTRUMENT
+  Mesh *pmesh = md_old->GetMeshPointer();
+  BuildBoundaryBufferSubset<BoundaryType::remesh_send>(md_old, pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::remesh_recv>(md_new, pmesh->boundary_comm_map);
+  if (pmesh->do_coalesced_comms) {
+    RegisterCoalescedCommsSubset<BoundaryType::remesh_send>(md_old);
+    RegisterCoalescedCommsSubset<BoundaryType::remesh_recv>(md_new);
+  }
   return TaskStatus::complete;
 }
 

@@ -79,7 +79,9 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   }
 
   if (rebuild) {
-    if constexpr (bound_type == BoundaryType::gmg_restrict_send) {
+    if constexpr (bound_type == BoundaryType::gmg_restrict_send ||
+                  bound_type == BoundaryType::remesh_send) {
+      // Restrict whole blocks into their coarse buffers where the receiver is coarser
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetInteriorRestrict);
     } else if constexpr (bound_type == BoundaryType::gmg_prolongate_send) {
@@ -126,10 +128,11 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
           return;
         }
         const Real threshold = bnd_info(b).var.allocation_threshold;
-        // Dense variables have a zero threshold and flux correction buffers are always
-        // sent, so there is no need to check for non-zero values in those cases
-        const bool check_threshold =
-            (threshold > 0.0) && (bound_type != BoundaryType::flxcor_send);
+        // Dense variables have a zero threshold, and flux correction and remesh buffers
+        // are always sent, so none of these need the check for non-zero values
+        const bool check_threshold = (threshold > 0.0) &&
+                                     (bound_type != BoundaryType::flxcor_send) &&
+                                     (bound_type != BoundaryType::remesh_send);
         bool non_zero[3]{false, false, false};
         int idx_offset = 0;
         for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
@@ -215,6 +218,8 @@ template TaskStatus
 SendBoundBufs<BoundaryType::flxcor_send>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SendBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SendBoundBufs<BoundaryType::remesh_send>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -246,6 +251,8 @@ template TaskStatus
 StartReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 StartReceiveBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::remesh_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -266,8 +273,10 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                 });
   // Some MPI implementations only progress rendezvous sends while the sending rank is
   // inside MPI, so if we leave the exchange with sends in flight the receiving rank
-  // can be stalled until we next call MPI
-  if (coal_comm && all_received && pmesh->coalesced_wait_for_sends)
+  // can be stalled until we next call MPI. Remesh transfers send from a different
+  // MeshData than they receive into, so the remesh driver has to wait on those instead.
+  if (coal_comm && all_received && pmesh->coalesced_wait_for_sends &&
+      !IsRemeshTransfer(bound_type))
     all_received = pmesh->pcoalesced_comms->IsAvailableForWrite(
         md.get(), GetAssociatedSender(bound_type));
 
@@ -307,6 +316,8 @@ template TaskStatus
 ReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ReceiveBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::remesh_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -325,7 +336,10 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetInteriorProlongate);
-    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv ||
+                         bound_type == BoundaryType::remesh_recv) {
+      // Remesh prolongation onto newly refined blocks happens after all of the remesh
+      // data has arrived, so nothing is prolongated when setting
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetNull);
     } else {
@@ -450,6 +464,8 @@ SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SetBounds<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::remesh_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {

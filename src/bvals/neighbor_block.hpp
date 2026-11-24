@@ -93,6 +93,8 @@ struct NeighborBlock {
   block_ownership_t ownership;
   // Logical coordinate transformation from the main block to this neighbor
   forest::LogicalCoordinateTransformation lcoord_trans;
+  // Whether this connects a pre-remesh block to a post-remesh block (in either direction)
+  bool remesh_transfer = false;
 
   NeighborBlock();
   NeighborBlock(Mesh *mesh, LogicalLocation loc, LogicalLocation origin_loc, int rank,

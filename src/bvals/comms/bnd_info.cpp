@@ -141,7 +141,8 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   // that case an associated communication buffer may not exist
   // and a nullptr will be passed instead.
   if (combuf != nullptr) buf = combuf->buffer();
-  same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
+  // Remesh transfers connect old and new blocks, whose gids can coincide
+  same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell() && !nb.remesh_transfer;
   lcoord_trans = nb.lcoord_trans;
 
   if (NeighborIsCoarser(pmb, nb)) {
