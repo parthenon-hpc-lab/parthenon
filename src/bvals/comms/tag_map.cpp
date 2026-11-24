@@ -30,11 +30,10 @@ namespace parthenon {
 using namespace loops;
 using namespace loops::shorthands;
 
-TagMap::rank_pair_t TagMap::MakeChannelPair(const MeshBlock *pmb,
-                                            const NeighborBlock &nb) {
+TagMap::rank_pair_t TagMap::MakeChannelPair(int gid, const NeighborBlock &nb) {
   const int location_idx_me = nb.offsets.GetIdx();
   const int location_idx_nb = nb.lcoord_trans.Transform(nb.offsets).GetReverseIdx();
-  BlockGeometricElementId bgei_me{pmb->gid, location_idx_me};
+  BlockGeometricElementId bgei_me{gid, location_idx_me};
   BlockGeometricElementId bgei_nb{nb.gid, location_idx_nb};
   return UnorderedPair<BlockGeometricElementId>(bgei_me, bgei_nb);
 }
@@ -67,14 +66,17 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int lanes_per
       }
       return pmb->GetNeighbors();
     }();
-    for (const auto &nb : neighbors) {
-      const int other_rank = nb.rank;
-      if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
-      auto &pair_map = map_[other_rank];
-      // Add channel key with an invalid tag for each comm lane
-      for (int lane = 0; lane < lanes_per_pair; ++lane)
-        pair_map[std::make_pair(MakeChannelPair(pmb, nb), lane)] = -1;
-    }
+    AddBlockToMap(pmb->gid, neighbors, lanes_per_pair);
+  }
+}
+
+void TagMap::AddBlockToMap(int gid, const std::vector<NeighborBlock> &neighbors,
+                           int lanes_per_pair) {
+  for (const auto &nb : neighbors) {
+    auto &pair_map = map_[nb.rank];
+    // Add channel key with an invalid tag for each comm lane
+    for (int lane = 0; lane < lanes_per_pair; ++lane)
+      pair_map[std::make_pair(MakeChannelPair(gid, nb), lane)] = -1;
   }
 }
 template void
@@ -121,7 +123,7 @@ void TagMap::ResolveMap() {
 int TagMap::GetTag(const MeshBlock *pmb, const NeighborBlock &nb, const int lane) {
   const int other_rank = nb.rank;
   auto &pair_map = map_[other_rank];
-  auto cpair = MakeChannelPair(pmb, nb);
+  auto cpair = MakeChannelPair(pmb->gid, nb);
   auto key = std::make_pair(cpair, lane);
   PARTHENON_REQUIRE(pair_map.count(key) == 1,
                     "Trying to get tag for key that hasn't been entered.\n");

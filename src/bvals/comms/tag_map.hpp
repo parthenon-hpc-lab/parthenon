@@ -23,6 +23,7 @@
 #include <map>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "basic_types.hpp"
 
@@ -93,7 +94,7 @@ class TagMap {
   // firsts NeighborBlock information) return an ordered pair of BlockGeometricElementIds
   // corresponding to the two blocks geometric elements that coincide. This serves as a
   // unique key defining the two-way communication channel between these elements
-  rank_pair_t MakeChannelPair(const MeshBlock *pmb, const NeighborBlock &nb);
+  rank_pair_t MakeChannelPair(int gid, const NeighborBlock &nb);
 
  public:
   void clear() { map_.clear(); }
@@ -101,6 +102,11 @@ class TagMap {
   // Inserts all of the communication channels known about by MeshData md into the map
   template <BoundaryType BOUND>
   void AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int lanes_per_pair = 1);
+
+  // Inserts the channels between the block with global id gid and its neighbors, which
+  // allows adding the channels of blocks that have not been created yet
+  void AddBlockToMap(int gid, const std::vector<NeighborBlock> &neighbors,
+                     int lanes_per_pair = 1);
 
   // Once all MeshData objects have inserted their known channels into the map, we can
   // iterate through a map for a given rank pair (which is already ordered by key because

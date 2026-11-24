@@ -232,16 +232,21 @@ TaskStatus RegisterCoalescedCommsGMG(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-TaskStatus BuildRemeshBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md_old,
-                                      std::shared_ptr<MeshData<Real>> &md_new) {
+TaskStatus BuildRemeshSendBuffers(std::shared_ptr<MeshData<Real>> &md_old) {
   PARTHENON_INSTRUMENT
   Mesh *pmesh = md_old->GetMeshPointer();
   BuildBoundaryBufferSubset<BoundaryType::remesh_send>(md_old, pmesh->boundary_comm_map);
-  BuildBoundaryBufferSubset<BoundaryType::remesh_recv>(md_new, pmesh->boundary_comm_map);
-  if (pmesh->do_coalesced_comms) {
+  if (pmesh->do_coalesced_comms)
     RegisterCoalescedCommsSubset<BoundaryType::remesh_send>(md_old);
+  return TaskStatus::complete;
+}
+
+TaskStatus BuildRemeshReceiveBuffers(std::shared_ptr<MeshData<Real>> &md_new) {
+  PARTHENON_INSTRUMENT
+  Mesh *pmesh = md_new->GetMeshPointer();
+  BuildBoundaryBufferSubset<BoundaryType::remesh_recv>(md_new, pmesh->boundary_comm_map);
+  if (pmesh->do_coalesced_comms)
     RegisterCoalescedCommsSubset<BoundaryType::remesh_recv>(md_new);
-  }
   return TaskStatus::complete;
 }
 

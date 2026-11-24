@@ -150,9 +150,10 @@ TaskStatus RegisterCoalescedCommsGMG(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus RegisterCoalescedComms(Mesh *pmesh);
 // Build communication buffers (and coalesced comms, if enabled) for the channels between
 // the pre-remesh blocks in md_old and the post-remesh blocks in md_new, as described by
-// the blocks' remesh neighbor lists
-TaskStatus BuildRemeshBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md_old,
-                                      std::shared_ptr<MeshData<Real>> &md_new);
+// the blocks' remesh neighbor lists. The send side does not need the post-remesh blocks
+// to exist, so the sends can start before they are created.
+TaskStatus BuildRemeshSendBuffers(std::shared_ptr<MeshData<Real>> &md_old);
+TaskStatus BuildRemeshReceiveBuffers(std::shared_ptr<MeshData<Real>> &md_new);
 } // namespace parthenon
 
 #endif // BVALS_COMMS_BVALS_IN_ONE_HPP_

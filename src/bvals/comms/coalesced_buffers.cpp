@@ -591,18 +591,20 @@ void CoalescedComms::ResolveAndSendSendBuffers() {
 //----------------------------------------------------------------------------------------
 void CoalescedComms::ReceiveBufferInfo() {
   constexpr std::int64_t max_it = 1e10;
-  std::vector<bool> received(coalesced_recv_buffers.size(), false);
-  bool all_received;
   std::int64_t receive_iters = 0;
-  do {
-    all_received = true;
-    for (auto &[id, buf] : coalesced_recv_buffers)
-      all_received = buf.TryReceiveBufInfo() && all_received;
+  while (!TryReceiveBufferInfo() && receive_iters < max_it)
     receive_iters++;
-  } while (!all_received && receive_iters < max_it);
   PARTHENON_REQUIRE(
       receive_iters < max_it,
       "Too many iterations waiting to receive boundary communication buffers.");
+}
+
+//----------------------------------------------------------------------------------------
+bool CoalescedComms::TryReceiveBufferInfo() {
+  bool all_received = true;
+  for (auto &[id, buf] : coalesced_recv_buffers)
+    all_received = buf.TryReceiveBufInfo() && all_received;
+  return all_received;
 }
 
 //----------------------------------------------------------------------------------------

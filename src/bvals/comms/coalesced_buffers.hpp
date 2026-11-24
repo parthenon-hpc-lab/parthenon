@@ -182,6 +182,8 @@ struct CoalescedComms {
   void ResolveAndSendSendBuffers();
 
   void ReceiveBufferInfo();
+  // Non-blocking version of ReceiveBufferInfo, returns true once all info has arrived
+  bool TryReceiveBufferInfo();
 
   // Print the size and number of all coalesced messages sent by every rank. Collective.
   void PrintCensus();

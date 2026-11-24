@@ -122,17 +122,19 @@ GetOverlappingGids(const LogicalLocation &loc,
 
 //----------------------------------------------------------------------------------------
 // \brief Build the remesh "neighbor" lists connecting old blocks on this rank to the new
-// blocks that overlap them, and new blocks on this rank to the old blocks that overlap
-// them. Blocks that are reused in place (same location, same rank) get no channels.
-// Old and new blocks can share a gid, which is unambiguous since a remesh channel always
-// goes from an old block to a new block.
+// blocks that overlap them, and new blocks on this rank (gids nbs to nbe) to the old
+// blocks that overlap them. The old blocks' lists are set directly; the new blocks'
+// lists are returned (indexed by gid - nbs), since the new blocks may not exist yet.
+// Blocks that are reused in place (same location, same rank) get no channels. Old and
+// new blocks can share a gid, which is unambiguous since a remesh channel always goes
+// from an old block to a new block.
 
-void Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs,
-                               const BlockList_t &new_blocks, int nbs,
-                               const std::vector<LogicalLocation> &newloc,
-                               const std::vector<int> &newrank,
-                               const std::unordered_map<LogicalLocation, int> &old_gid_of,
-                               const std::unordered_map<LogicalLocation, int> &new_gid_of) {
+std::vector<std::vector<NeighborBlock>>
+Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs, int nbs, int nbe,
+                          const std::vector<LogicalLocation> &newloc,
+                          const std::vector<int> &newrank,
+                          const std::unordered_map<LogicalLocation, int> &old_gid_of,
+                          const std::unordered_map<LogicalLocation, int> &new_gid_of) {
   const auto make_nb = [this](const LogicalLocation &loc, int rank, int gid) {
     NeighborBlock nb(this, loc, loc, rank, gid, Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0,
                      0, 0);
@@ -140,8 +142,6 @@ void Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs,
     return nb;
   };
   for (auto &pmb : old_blocks)
-    pmb->remesh_neighbors.clear();
-  for (auto &pmb : new_blocks)
     pmb->remesh_neighbors.clear();
 
   // Senders: old blocks on this rank
@@ -156,24 +156,25 @@ void Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs,
   }
 
   // Receivers: new blocks on this rank that are not reused old blocks
-  for (int i = 0; i < new_blocks.size(); ++i) {
-    auto &pmb = new_blocks[i];
-    const int nn = nbs + i;
+  std::vector<std::vector<NeighborBlock>> new_neighbors(nbe - nbs + 1);
+  for (int nn = nbs; nn <= nbe; ++nn) {
+    auto &neighbors = new_neighbors[nn - nbs];
     const auto ogids = GetOverlappingGids(newloc[nn], old_gid_of, ndim);
     if (loclist[ogids[0]] == newloc[nn] && ranklist[ogids[0]] == Globals::my_rank)
       continue;
     for (int on : ogids)
-      pmb->remesh_neighbors.push_back(make_nb(loclist[on], ranklist[on], on));
+      neighbors.push_back(make_nb(loclist[on], ranklist[on], on));
     if (ogids.size() > 1) {
       // A coarsened block receives from all of its daughters, which share elements in
       // the interior of the parent; assign each shared element to a single daughter.
       std::vector<forest::NeighborLocation> daughters;
-      for (const auto &nb : pmb->remesh_neighbors)
+      for (const auto &nb : neighbors)
         daughters.emplace_back(nb.loc, nb.loc, forest::LogicalCoordinateTransformation());
-      for (auto &nb : pmb->remesh_neighbors)
+      for (auto &nb : neighbors)
         nb.ownership = DetermineOwnership(nb.loc, daughters, false);
     }
   }
+  return new_neighbors;
 }
 
 //----------------------------------------------------------------------------------------
@@ -667,38 +668,22 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
-  // Construct a new MeshBlock list (moving the data within the MPI rank)
+  // The new MeshBlock list, reusing the blocks that stay in place on this rank
   BlockList_t new_block_list(nbe - nbs + 1);
-  { // AMR Construct new MeshBlockList region
-    PARTHENON_INSTRUMENT
-    RegionSize block_size = GetDefaultBlockSize();
-
-    for (int n = nbs; n <= nbe; n++) {
-      int on = newtoold[n];
-      if ((ranklist[on] == Globals::my_rank) && (loclist[on] == newloc[n])) {
-        // on the same MPI rank and same location -> just move it
-        new_block_list[n - nbs] = FindMeshBlock(on);
-      } else {
-        // on a different refinement level or MPI rank - create a new block
-        BoundaryFlag block_bcs[6];
-        SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
-        new_block_list[n - nbs] =
-            MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
-                            app_in, packages, resolved_packages, gflag);
-      }
-    }
-  } // AMR Construct new MeshBlockList region
 
   // Prolongation from the coarse buffers of blocks that were newly refined (c2f). The
   // cache is built once the remesh data has been received, since receiving allocates
   // sparse variables on the new blocks
+  bool any_newly_refined = false;
+  for (int nn = nbs; nn <= nbe; nn++)
+    any_newly_refined = any_newly_refined || newly_refined.count(newloc[nn]);
   ProResCache_t prolongation_cache;
   int nprolong = 0;
-  for (int nn = nbs; nn <= nbe; nn++) {
-    if (newly_refined.count(newloc[nn]))
-      nprolong += new_block_list[nn - nbs]->vars_cc_.size();
-  }
   auto build_prolongation_cache = [&]() {
+    for (int nn = nbs; nn <= nbe; nn++) {
+      if (newly_refined.count(newloc[nn]))
+        nprolong += new_block_list[nn - nbs]->vars_cc_.size();
+    }
     prolongation_cache.Initialize(nprolong, resolved_packages.get());
     int iprolong = 0;
     for (int nn = nbs; nn <= nbe; nn++) {
@@ -718,52 +703,89 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   { // AMR communicate field data from the old blocks to the new blocks
     PARTHENON_INSTRUMENT
     ResetCommunicationInfrastructure(this);
-    SetRemeshNeighbors_(block_list, onbs, new_block_list, nbs, newloc, newrank,
-                        old_gid_of, new_gid_of);
+    auto new_remesh_neighbors = SetRemeshNeighbors_(block_list, onbs, nbs, nbe, newloc,
+                                                    newrank, old_gid_of, new_gid_of);
 
-    // Coalesced comms identify the sending MeshData by its partition, so these need
-    // their own (leaf grid) partitions covering the old and new block lists
+    // The channels (and so their tags) follow from the remesh neighbor lists, so the
+    // send side can be completely set up before the new blocks exist. Coalesced comms
+    // identify the sending MeshData by its partition, so the old and new block lists
+    // need their own (leaf grid) partitions.
     auto md_old = std::make_shared<MeshData<Real>>("base", block_list, this);
-    auto md_new = std::make_shared<MeshData<Real>>("base", new_block_list, this);
     md_old->partition =
         std::make_shared<BlockListPartition>(0, GridIdentifier::leaf(), block_list, this);
-    md_new->partition = std::make_shared<BlockListPartition>(0, GridIdentifier::leaf(),
-                                                             new_block_list, this);
-
     AddToTagMap<BoundaryType::remesh_send>(md_old);
-    AddToTagMap<BoundaryType::remesh_recv>(md_new);
+    LockCommLaneNumbers(BoundaryType::remesh_recv);
+    const int recv_lanes = GetNumberOfCommLanes(BoundaryType::remesh_recv);
+    for (int nn = nbs; nn <= nbe; nn++)
+      tag_map.AddBlockToMap(nn, new_remesh_neighbors[nn - nbs], recv_lanes);
     tag_map.ResolveMap();
-    BuildRemeshBoundaryBuffers(md_old, md_new);
-    if (do_coalesced_comms) {
-      pcoalesced_comms->ResolveAndSendSendBuffers();
-      // This operation is blocking
-      pcoalesced_comms->ReceiveBufferInfo();
-    }
+    BuildRemeshSendBuffers(md_old);
+    if (do_coalesced_comms) pcoalesced_comms->ResolveAndSendSendBuffers();
 
-    // Send (restricting first where the new block is coarser) from the old blocks,
-    // receive into the new blocks, and prolongate onto the newly refined ones
+    std::shared_ptr<MeshData<Real>> md_new;
     TaskCollection tc;
     TaskRegion &region = tc.AddRegion(1);
     auto &tl = region[0];
-    if (md_new->NumBlocks() > 0) {
-      auto start =
-          tl.AddTask(TaskID(), TF(StartReceiveBoundBufs<BoundaryType::remesh_recv>), md_new);
-      auto recv = tl.AddTask(start, TF(ReceiveBoundBufs<BoundaryType::remesh_recv>), md_new);
-      auto set = tl.AddTask(recv, TF(SetBounds<BoundaryType::remesh_recv>), md_new);
-      if (nprolong > 0) {
-        tl.AddTask(set, "ProlongateShared", [&]() {
-          build_prolongation_cache();
-          refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
-                                       new_block_list[0]->cellbounds,
-                                       new_block_list[0]->c_cellbounds);
-          return TaskStatus::complete;
-        });
+    // Send from the old blocks, restricting first where the new block is coarser
+    auto send = tl.AddTask(TaskID(), TF(SendBoundBufs<BoundaryType::remesh_send>), md_old);
+    tl.AddTask(send, TF(RemeshSendsComplete), md_old);
+
+    // While the sends are in flight, create the new blocks (without allocating their
+    // data) and set up receiving into them
+    auto create = tl.AddTask(TaskID(), "CreateNewBlocks", [&]() {
+      RegionSize block_size = GetDefaultBlockSize();
+      for (int n = nbs; n <= nbe; n++) {
+        int on = newtoold[n];
+        if ((ranklist[on] == Globals::my_rank) && (loclist[on] == newloc[n])) {
+          // on the same MPI rank and same location -> just move it
+          new_block_list[n - nbs] = FindMeshBlock(on);
+        } else {
+          // on a different refinement level or MPI rank - create a new block
+          BoundaryFlag block_bcs[6];
+          SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
+          constexpr bool defer_allocation = true;
+          auto pmb = MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this,
+                                     pin, app_in, packages, resolved_packages, gflag, 1.0,
+                                     defer_allocation);
+          pmb->remesh_neighbors = std::move(new_remesh_neighbors[n - nbs]);
+          new_block_list[n - nbs] = pmb;
+        }
       }
+      md_new = std::make_shared<MeshData<Real>>("base", new_block_list, this);
+      md_new->partition = std::make_shared<BlockListPartition>(
+          0, GridIdentifier::leaf(), new_block_list, this);
+      return BuildRemeshReceiveBuffers(md_new);
+    });
+    auto info = create;
+    if (do_coalesced_comms) {
+      info = tl.AddTask(create, "ReceiveCoalescedBufferInfo", [&]() {
+        return pcoalesced_comms->TryReceiveBufferInfo() ? TaskStatus::complete
+                                                        : TaskStatus::incomplete;
+      });
     }
-    if (md_old->NumBlocks() > 0) {
-      auto send =
-          tl.AddTask(TaskID(), TF(SendBoundBufs<BoundaryType::remesh_send>), md_old);
-      tl.AddTask(send, TF(RemeshSendsComplete), md_old);
+    auto start = tl.AddTask(info, "StartReceive", [&]() {
+      return StartReceiveBoundBufs<BoundaryType::remesh_recv>(md_new);
+    });
+    auto alloc = tl.AddTask(create, "AllocateNewBlocks", [&]() {
+      for (auto &pmb : new_block_list)
+        pmb->AllocateDeferred(pin);
+      return TaskStatus::complete;
+    });
+
+    // Receive into the new blocks and prolongate onto the newly refined ones
+    auto recv = tl.AddTask(start | alloc, "Receive", [&]() {
+      return ReceiveBoundBufs<BoundaryType::remesh_recv>(md_new);
+    });
+    auto set = tl.AddTask(
+        recv, "SetBounds", [&]() { return SetBounds<BoundaryType::remesh_recv>(md_new); });
+    if (any_newly_refined) {
+      tl.AddTask(set, "ProlongateShared", [&]() {
+        build_prolongation_cache();
+        refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
+                                     new_block_list[0]->cellbounds,
+                                     new_block_list[0]->c_cellbounds);
+        return TaskStatus::complete;
+      });
     }
     TaskListStatus status = tc.Execute(task_collection_timeout_in_seconds);
     PARTHENON_REQUIRE(status == TaskListStatus::complete,

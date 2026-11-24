@@ -92,7 +92,13 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
        BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
        Packages_t &packages, std::shared_ptr<StateDescriptor> resolved_packages,
-       int igflag, double icost = 1.0);
+       int igflag, double icost = 1.0, bool defer_allocation = false);
+
+  // A block made with defer_allocation has all of its variables, but none of their data
+  // and no application data. This allows setting up communication with the block
+  // before paying for allocation. AllocateDeferred makes it a complete block.
+  bool AllocationDeferred() const { return allocation_deferred_; }
+  void AllocateDeferred(ParameterInput *pin);
 
   // Kokkos execution space for this MeshBlock
   DevExecSpace exec_space;
@@ -474,6 +480,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
 
   bool is_leaf_ll_{true};
+  bool allocation_deferred_{false};
 
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until
@@ -482,7 +489,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                   BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
                   ApplicationInput *app_in, Packages_t &packages,
                   std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
-                  double icost = 1.0);
+                  double icost = 1.0, bool defer_allocation = false);
 
   void InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
                                  bool init_coarse, bool multilevel);

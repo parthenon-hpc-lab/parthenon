@@ -48,6 +48,9 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
   auto pvar = std::make_shared<Variable<T>>(base_name, metadata, sparse_id, pmy_block);
   Add(pvar);
 
+  // Blocks made with deferred allocation allocate in MeshBlock::AllocateDeferred
+  auto pmb = pmy_block.lock();
+  if (pmb != nullptr && pmb->AllocationDeferred()) return;
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
     pvar->Allocate(pmy_block);
   }

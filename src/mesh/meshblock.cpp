@@ -68,11 +68,28 @@ MeshBlock::Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block
                 BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
                 ApplicationInput *app_in, Packages_t &packages,
                 std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
-                double icost) {
+                double icost, bool defer_allocation) {
   auto pmb = std::make_shared<MeshBlock>();
   pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, packages,
-                  resolved_packages, igflag, icost);
+                  resolved_packages, igflag, icost, defer_allocation);
   return pmb;
+}
+
+void MeshBlock::AllocateDeferred(ParameterInput *pin) {
+  if (!allocation_deferred_) return;
+  allocation_deferred_ = false;
+  // Allocate what MeshBlockData would have allocated on construction
+  auto &real_container = meshblock_data.Get();
+  for (auto &v : real_container->GetVariableVector()) {
+    if (!Globals::sparse_config.enabled || !v->IsSparse()) v->Allocate(shared_from_this());
+  }
+  Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
+  for (auto &v : real_container->GetVariablesByFlag(flags).vars()) {
+    real_container->AllocateSparse(v->label());
+  }
+  if (InitApplicationMeshBlockData != nullptr) {
+    app = InitApplicationMeshBlockData(this, pin);
+  }
 }
 
 void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
@@ -80,8 +97,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
                            ParameterInput *pin, ApplicationInput *app_in,
                            Packages_t &packages,
                            std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
-                           double icost) {
+                           double icost, bool defer_allocation) {
   exec_space = DevExecSpace();
+  allocation_deferred_ = defer_allocation;
   pmy_mesh = pm;
   loc = iloc;
   block_size = input_block;
@@ -195,7 +213,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Create user mesh data
   // InitMeshBlockUserData(pin);
-  if (InitApplicationMeshBlockData != nullptr) {
+  if (InitApplicationMeshBlockData != nullptr && !allocation_deferred_) {
     app = InitApplicationMeshBlockData(this, pin);
   }
 }
