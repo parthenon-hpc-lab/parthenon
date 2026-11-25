@@ -8,6 +8,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1480]](https://github.com/parthenon-hpc-lab/parthenon/pull/1480) Order package callbacks by dependencies declared with `CallbackRegistration`
 - [[PR 1473]](https://github.com/parthenon-hpc-lab/parthenon/pull/1473) Rename boundary buffer ids/comm channels to comm lanes (`MeshData::SetBoundBufferId` -> `MeshData::SetCommLane`, `Mesh::SetNumberOfCommChannels` -> `Mesh::SetNumberOfCommLanes`, old names are removed) and make `MeshData::partition` a pointer to the `BlockListPartition` the `MeshData` was built from
 - [[PR 1446]](https://github.com/parthenon-hpc-lab/parthenon/pull/1446) Die on repeatedly receiving SIGINT
 

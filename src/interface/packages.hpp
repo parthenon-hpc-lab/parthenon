@@ -15,10 +15,12 @@
 #define INTERFACE_PACKAGES_HPP_
 
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
 #include "basic_types.hpp"
+#include "utils/callbacks.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -83,6 +85,27 @@ class Packages_t {
       }
     }
     return sub_list;
+  }
+
+  // Orders the packages' callbacks by the dependencies of their CallbackRegistrations,
+  // see utils/callbacks.hpp. The methods below forward to it.
+  CallbackOrder<StateDescriptor> CallbackOrders() const {
+    return CallbackOrder<StateDescriptor>(packages_, "StateDescriptor");
+  }
+
+  // Registrations of a StateDescriptor callback member in execution order, e.g.
+  //   for (const auto &fill_derived_mesh :
+  //        packages.Callbacks<&StateDescriptor::FillDerivedMesh>())
+  //     fill_derived_mesh(md);
+  template <auto Member>
+  auto Callbacks() const {
+    return CallbackOrders().Callbacks<Member>();
+  }
+
+  // Write the dependency graph of a callback member in GraphViz DOT format
+  template <auto Member>
+  void WriteCallbackGraph(std::ostream &stream, const std::string &callback_name) const {
+    CallbackOrders().WriteCallbackGraph<Member>(stream, callback_name);
   }
 
  private:
