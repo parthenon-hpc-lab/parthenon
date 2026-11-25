@@ -30,7 +30,10 @@ and `lroberts36/remesh-tasks`, all unpatched. Timing comes from space-time-stack
 (UpdateMeshBlockTree, which absorbs rank skew left by the remesh), `st_lb` (the whole
 LoadBalancingAndAdaptiveMeshRefinement), and `st_total`, all averaged over ranks.
 
-    git pull && rocinante/setup_tasks.sh     # after setup.sh; re-run to pick up new commits
+    git pull && rocinante/setup_tasks.sh --fetch-only    # login node (GitHub access)
+    JOBS=64 srun -A xd -p standard -N 1 -n 1 --exclusive -t 1:00:00 \
+      rocinante/setup_tasks.sh --no-fetch                 # builds on a compute node
+    # after setup.sh (Kokkos Tools); re-run both steps to pick up new remesh-tasks commits
     sbatch -A xd -p standard -N 1 -t 0:30:00 rocinante/bench.sbatch --machine rocinante-tasks \
       --only b32 --ranks 8 --reps 1                                            # smoke
     sbatch -A xd -p standard -N 1 -t 2:00:00 rocinante/bench.sbatch --machine rocinante-tasks \
