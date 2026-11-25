@@ -22,6 +22,7 @@
 #define OUTPUTS_OUTPUTS_HPP_
 //! \file outputs.hpp
 //  \brief provides classes to handle ALL types of data output
+// This file was made in part with generative AI.
 
 #include <map>
 #include <memory>
@@ -40,6 +41,11 @@
 #include "outputs/output_parameters.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
+
+// forward declaration to not expose openPMD headers
+namespace openPMD {
+class Series;
+} // namespace openPMD
 
 namespace parthenon {
 
@@ -161,9 +167,11 @@ class AscentOutput : public OutputType {
 class OpenPMDOutput : public OutputType {
  public:
   explicit OpenPMDOutput(const OutputParameters &oparams, std::string backend_config,
-                         int coarsening_factor, int format_version)
+                         int coarsening_factor, int format_version,
+                         std::string stream_engine)
       : OutputType(oparams), backend_config_(std::move(backend_config)),
-        coarsening_factor_(coarsening_factor), format_version_(format_version) {}
+        coarsening_factor_(coarsening_factor), format_version_(format_version),
+        stream_engine_(std::move(stream_engine)) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
   template <bool WRITE_SINGLE_PRECISION>
@@ -181,6 +189,10 @@ class OpenPMDOutput : public OutputType {
   std::string backend_config_;
   int coarsening_factor_;
   int format_version_;
+  // "none" (one file per output), or "sst"/"bp5" (one stream with one step per output)
+  std::string stream_engine_;
+  // Series kept open across outputs when streaming (closed on destruction)
+  std::shared_ptr<openPMD::Series> series_;
 };
 
 #ifdef ENABLE_HDF5

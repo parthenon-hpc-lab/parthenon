@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR XXXX]](https://github.com/parthenon-hpc-lab/parthenon/pull/XXXX) Add streaming openPMD outputs (`stream_engine = sst|bp5`), outputs `on_request`, and a live viewer script
 
 
 ### Changed (changing behavior/API/variables/...)
