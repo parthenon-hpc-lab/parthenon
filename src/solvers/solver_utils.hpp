@@ -204,12 +204,15 @@ constexpr TopologicalElement FlatBoundsElement(TopologicalElement te) {
 }
 
 // Whether element (k, j, i) of type el, with interior bounds kb, jb, ib, is owned by
-// block b of the pack. Only valid on the leaf grid.
+// block b of the pack. Only valid on the leaf grid. Every cell is owned, so callers need
+// no constexpr-if around this (nvcc rejects device lambdas that first capture kb, jb, ib
+// inside one).
 template <TopologicalElement el, class pack_t>
 KOKKOS_FORCEINLINE_FUNCTION bool
 IsOwnedElement(const pack_t &pack, const int b, const IndexRange &kb,
                const IndexRange &jb, const IndexRange &ib, const int k, const int j,
                const int i) {
+  if constexpr (el == TopologicalElement::CC) return true;
   constexpr bool offi = TopologicalOffsetI(el);
   constexpr bool offj = TopologicalOffsetJ(el);
   constexpr bool offk = TopologicalOffsetK(el);
@@ -649,9 +652,7 @@ Real DotProductElement(const std::shared_ptr<MeshData<Real>> &md_a, const pack_t
       pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
                     Real &lsum) {
-        if constexpr (te != TopologicalElement::CC) {
-          if (!IsOwnedElement<te>(pack_a, b, kb, jb, ib, k, j, i)) return;
-        }
+        if (!IsOwnedElement<te>(pack_a, b, kb, jb, ib, k, j, i)) return;
         const Real var_a = pack_a(b, te, c, k, j, i);
         const Real var_b = pack_b(b, te, c, k, j, i);
         if constexpr (VolumeWeight) {
@@ -730,9 +731,7 @@ DoubleDotProductElement(const std::shared_ptr<MeshData<Real>> &md_a, const pack_
       pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
                     summable_array_t<Real, 2> &lsum) {
-        if constexpr (te != TopologicalElement::CC) {
-          if (!IsOwnedElement<te>(pack_a, b, kb, jb, ib, k, j, i)) return;
-        }
+        if (!IsOwnedElement<te>(pack_a, b, kb, jb, ib, k, j, i)) return;
         const Real var_a = pack_a(b, te, c, k, j, i);
         const Real var_b = pack_b(b, te, c, k, j, i);
         if constexpr (VolumeWeight) {
