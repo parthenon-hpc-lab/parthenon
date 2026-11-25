@@ -45,6 +45,7 @@
 #include "outputs/parthenon_xdmf.hpp"
 #include "outputs/restart.hpp"
 #include "pack/default_names.hpp"
+#include "parameter_parsers/rummy_parser.hpp"
 #include "provenance.hpp"
 #include "utils/string_utils.hpp"
 
@@ -137,14 +138,19 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   Kokkos::Profiling::pushRegion("write Attributes");
   {
     Kokkos::Profiling::pushRegion("write input");
-    // write input key-value pairs
-    std::ostringstream oss;
-    pin->ParameterDump(oss);
-
-    // Mesh information
     const H5G input_group = MakeGroup(file, "/Input");
-
-    HDF5WriteAttribute("File", oss.str().c_str(), input_group);
+    if (const auto *deck = pin->GetRummyDeck(); deck != nullptr) {
+      const auto state = MakeRummyRestartState(*pin, *deck);
+      HDF5WriteAttribute("File", state.source, input_group);
+      HDF5WriteAttribute("InputParser", "rummy", input_group);
+      HDF5WriteAttribute("RummyMode", state.mode, input_group);
+      HDF5WriteAttribute("RummyStateVersion", state.version, input_group);
+      HDF5WriteAttribute("RummyState", state.source, input_group);
+    } else {
+      std::ostringstream oss;
+      pin->ParameterDump(oss);
+      HDF5WriteAttribute("File", oss.str(), input_group);
+    }
     Kokkos::Profiling::popRegion(); // write input
   } // Input section
 

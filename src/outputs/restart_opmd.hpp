@@ -52,6 +52,17 @@ class RestartReaderOPMD : public RestartReader {
   [[nodiscard]] std::string GetInputString() const override {
     return it->getAttribute("InputFile").get<std::string>();
   };
+  [[nodiscard]] RummyInputState GetRummyInputState() const override {
+    RummyInputState state;
+    if (!it->containsAttribute("InputParser") ||
+        it->getAttribute("InputParser").get<std::string>() != "rummy")
+      return state;
+    state.present = true;
+    state.version = it->getAttribute("RummyStateVersion").get<int>();
+    state.mode = it->getAttribute("RummyMode").get<std::string>();
+    state.source = it->getAttribute("RummyState").get<std::string>();
+    return state;
+  }
 
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;

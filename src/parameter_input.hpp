@@ -36,6 +36,7 @@
 #include <typeinfo>
 #include <unordered_map>
 #include <utility> // for std::forward, std::pair
+#include <variant>
 #include <vector>
 
 #include "config.hpp"
@@ -47,6 +48,10 @@
 #include "utils/string_utils.hpp"
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
+
+namespace Rummy {
+class DeckBase;
+}
 
 namespace parthenon {
 
@@ -175,9 +180,17 @@ struct UnresolvedString {
   explicit UnresolvedString(std::string &&v) : value(std::move(v)) {}
 };
 
-// Build ParamValue variant from SupportedParamTypes + UnresolvedString
-using ParamValue =
-    type_list_to_variant_t<insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>>;
+// A parser-provided vector whose elements retain their original scalar kind.
+// This avoids treating commas in string elements as separators while deferring
+// conversion until the consumer requests a concrete vector type.
+using UnresolvedScalar = std::variant<UnresolvedString, int, Real, bool, std::string>;
+struct UnresolvedVector {
+  std::vector<UnresolvedScalar> values;
+};
+
+// Build ParamValue variant from SupportedParamTypes + parser-preserved values.
+using ParamValue = type_list_to_variant_t<insert_type_list_t<
+    UnresolvedVector, insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>, 0>>;
 
 // This can be used to tell the params infrastructure that the default
 // value of one parameter depends on another one
@@ -223,6 +236,13 @@ struct Parameter {
 
 struct Block {
   std::string name;
+  // Optional metadata describing the rummy class backing this block. Only
+  // populated by the FullDeck parser (e.g. a `<parthenon/output(output1)>`
+  // header records class_name="output", instance_name="output1"). Empty
+  // for the SimpleDeck parser and the legacy text parser.
+  std::string class_name;
+  std::string instance_name;
+  std::string canonical_path;
   std::vector<Parameter> params; // Ordered storage (for iteration)
   std::unordered_map<std::string, size_t>
       param_index; // Fast lookup within block (stores indices)
@@ -260,6 +280,9 @@ class ParameterInput {
   void AddParsedParameter(const std::string &block, const std::string &name,
                           const ParamValue &value,
                           const std::string &comment = "# From parser");
+  void AddParsedBlock(const std::string &block, const std::string &class_name = "",
+                      const std::string &instance_name = "",
+                      const std::string &canonical_path = "");
 
   // Finalize the parsing phase - no more parsing allowed (but GetOrAdd/Set still work)
   void FinalizeParsing();
@@ -267,9 +290,24 @@ class ParameterInput {
   // === QUERY INTERFACE (parser-agnostic) ===
   std::vector<std::string> GetBlockNames() const;
   std::vector<std::string> GetBlockNamesWithPrefix(const std::string &prefix) const;
+  // Return the names of all blocks whose rummy class metadata matches
+  // `class_name`. Only meaningful for inputs parsed by the FullDeck parser;
+  // returns an empty vector for SimpleDeck/legacy inputs.
+  std::vector<std::string> GetBlocksOfClass(const std::string &class_name) const;
   std::vector<std::string> GetParameterNames(const std::string &block) const;
 
+  // Set the rummy class/instance metadata for a parsed block. Used by the
+  // rummy parser when populating from a FullDeck; ignored for callers that
+  // do not need class introspection.
+  void SetBlockClassMetadata(const std::string &block, const std::string &class_name,
+                             const std::string &instance_name,
+                             const std::string &canonical_path = "");
+
   void ParameterDump(std::ostream &os);
+  // Non-owning link to the input deck retained by ParthenonManager. Output
+  // writers use it to generate current Rummy restart state.
+  void SetRummyDeck(Rummy::DeckBase *deck) { rummy_deck_ = deck; }
+  Rummy::DeckBase *GetRummyDeck() const { return rummy_deck_; }
   // TODO(JMM): Make this more general?
   void OutputParameterTable(std::ostream &os,
                             const std::regex &block_regex = std::regex("(.*)")) const;
@@ -482,6 +520,7 @@ class ParameterInput {
   std::unordered_map<std::string, size_t>
       block_index_;                // Fast O(1) block lookup (stores indices)
   bool parsing_finalized_ = false; // Track if parsing phase is complete
+  Rummy::DeckBase *rummy_deck_ = nullptr;
 
   std::string last_filename_; // last input file opened, to prevent duplicate reads
   // We will want to iterate through the record in lexicographic
