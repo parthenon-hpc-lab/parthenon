@@ -201,6 +201,11 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   const std::vector<NeighborBlock> &GetGMGFinerNeighbors() const {
     return gmg_finer_neighbors;
   }
+  // Blocks on the other side of a remesh (new blocks for an old block, old blocks for a
+  // new block) that overlap this block in space; only populated during remeshing
+  const std::vector<NeighborBlock> &GetRemeshNeighbors() const {
+    return remesh_neighbors;
+  }
   const std::vector<NeighborBlock> &GetGMGSelfNeighbors() const {
     return gmg_self_neighbors;
   }
@@ -513,6 +518,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::vector<NeighborBlock> gmg_same_neighbors;
   std::vector<NeighborBlock> gmg_finer_neighbors;
   std::vector<NeighborBlock> gmg_self_neighbors;
+  std::vector<NeighborBlock> remesh_neighbors;
 
   bool has_coarser_neighbors_ = false;
 };

@@ -96,6 +96,14 @@ inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &gr
   return pmb->GetGMGFinerNeighbors();
 }
 
+// Variables whose state is carried across a remesh (this matches the selection of
+// MeshBlock::vars_cc_)
+template <class V>
+inline bool IsRemeshedVariable(const V &v) {
+  return v->IsSet(Metadata::Independent) || v->IsSet(Metadata::FillGhost) ||
+         v->IsSet(Metadata::ForceRemeshComm);
+}
+
 // Loop over boundaries (or shared geometric elements) for blocks contained
 // in MeshData, calling the passed function func for every boundary. Unifies
 // boundary looping that occurs in many places in the boundary communication
@@ -133,6 +141,18 @@ inline void ForEachBoundary(std::shared_ptr<MD> &md, F func) {
       } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
         if (v->IsSet(Metadata::GMGProlongate)) {
           for (auto &nb : GetNeighborsOnCoarserGMGGrid(pmb, md->grid)) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
+          }
+        }
+      } else if constexpr (IsRemeshTransfer(bound)) {
+        if (IsRemeshedVariable(v)) {
+          for (auto &nb : pmb->GetRemeshNeighbors()) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
+          }
+        }
+      } else if constexpr (bound == BoundaryType::remesh_halo) {
+        if (IsRemeshedVariable(v) && !v->IsSet(Metadata::FillGhost)) {
+          for (auto &nb : pmb->GetNeighbors()) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }

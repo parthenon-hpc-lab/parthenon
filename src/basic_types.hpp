@@ -68,7 +68,7 @@ enum class RefinementOp_t { Prolongation, Restriction, None };
 enum class CellLevel : int { coarse = -1, same = 0, fine = 1 };
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
-constexpr int NUM_BNDRY_TYPES = 10;
+constexpr int NUM_BNDRY_TYPES = 13;
 enum class BoundaryType : int {
   local,
   nonlocal,
@@ -79,13 +79,25 @@ enum class BoundaryType : int {
   gmg_restrict_send,
   gmg_restrict_recv,
   gmg_prolongate_send,
-  gmg_prolongate_recv
+  gmg_prolongate_recv,
+  // Remesh channels connect blocks of the pre-remesh mesh (senders) to blocks of the
+  // post-remesh mesh (receivers) that overlap them in space
+  remesh_send,
+  remesh_recv,
+  // Same-level/coarse-fine halo exchange restricted to remeshed variables that are not
+  // FillGhost (i.e. Independent or ForceRemeshComm data that ordinary halos skip)
+  remesh_halo
 };
+
+inline constexpr bool IsRemeshTransfer(BoundaryType btype) {
+  return btype == BoundaryType::remesh_send || btype == BoundaryType::remesh_recv;
+}
 
 inline constexpr bool IsSender(BoundaryType btype) {
   if (btype == BoundaryType::flxcor_recv) return false;
   if (btype == BoundaryType::gmg_restrict_recv) return false;
   if (btype == BoundaryType::gmg_prolongate_recv) return false;
+  if (btype == BoundaryType::remesh_recv) return false;
   return true;
 }
 
@@ -93,6 +105,7 @@ inline constexpr bool IsReceiver(BoundaryType btype) {
   if (btype == BoundaryType::flxcor_send) return false;
   if (btype == BoundaryType::gmg_restrict_send) return false;
   if (btype == BoundaryType::gmg_prolongate_send) return false;
+  if (btype == BoundaryType::remesh_send) return false;
   return true;
 }
 
@@ -101,6 +114,7 @@ inline constexpr BoundaryType GetAssociatedReceiver(BoundaryType btype) {
   if (btype == BoundaryType::gmg_restrict_send) return BoundaryType::gmg_restrict_recv;
   if (btype == BoundaryType::gmg_prolongate_send)
     return BoundaryType::gmg_prolongate_recv;
+  if (btype == BoundaryType::remesh_send) return BoundaryType::remesh_recv;
   return btype;
 }
 
@@ -109,6 +123,7 @@ inline constexpr BoundaryType GetAssociatedSender(BoundaryType btype) {
   if (btype == BoundaryType::gmg_restrict_recv) return BoundaryType::gmg_restrict_send;
   if (btype == BoundaryType::gmg_prolongate_recv)
     return BoundaryType::gmg_prolongate_send;
+  if (btype == BoundaryType::remesh_recv) return BoundaryType::remesh_send;
   return btype;
 }
 

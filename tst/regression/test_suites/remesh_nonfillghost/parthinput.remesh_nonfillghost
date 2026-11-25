@@ -1,0 +1,63 @@
+# ========================================================================================
+#  Parthenon performance portable AMR framework
+#  Copyright(C) 2026 The Parthenon collaboration
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+
+# Remeshing of fields that are carried across remeshes (ForceRemeshComm) but are not
+# FillGhost. The remesh test fields hold a linear profile that is never evolved, and
+# prolongation/restriction reproduce linear data exactly, so their error (reported in the
+# history output) should stay at round-off however much the mesh changes.
+
+<parthenon/job>
+problem_id = remesh_nonfillghost
+
+<parthenon/mesh>
+refinement = adaptive
+numlevel = 3
+
+nx1 = 64
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 64
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 1
+x3min = -0.5
+x3max = 0.5
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 16
+nx2 = 16
+nx3 = 1
+
+<parthenon/time>
+nlim = -1
+tlim = 0.5
+integrator = rk2
+
+<Advection>
+cfl = 0.45
+vx = 1.0
+vy = 1.0
+vz = 1.0
+profile = hard_sphere
+refine_tol = 0.3
+derefine_tol = 0.03
+compute_error = false
+num_vars = 1
+vec_size = 1
+fill_derived = false
+remesh_test_fields = true
+
+<parthenon/output0>
+file_type = hst
+dt = 0.05

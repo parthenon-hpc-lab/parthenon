@@ -91,6 +91,10 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
     if constexpr (bound_type == BoundaryType::gmg_restrict_send) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetInteriorRestrict);
+    } else if constexpr (bound_type == BoundaryType::remesh_send) {
+      // Restrict old blocks into their coarse buffers where the new block is coarser
+      RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
+                                           ProResInfo::GetInteriorRestrict);
     } else if constexpr (bound_type == BoundaryType::gmg_prolongate_send) {
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetNull);
@@ -167,7 +171,11 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
                     Kokkos::LOr<bool, parthenon::DevMemSpace>(mnon_zero));
 
                 lnon_zero = lnon_zero || mnon_zero;
-                if (bound_type == BoundaryType::flxcor_send) lnon_zero = true;
+                // Flux corrections and remeshed data must always be sent if allocated,
+                // independent of the sparse allocation threshold
+                if (bound_type == BoundaryType::flxcor_send ||
+                    bound_type == BoundaryType::remesh_send)
+                  lnon_zero = true;
               },
               Kokkos::LOr<bool, parthenon::DevMemSpace>(non_zero[iel]));
           idx_offset += idxer.size();
@@ -225,6 +233,10 @@ template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::flxcor_send>(
 template TaskStatus
 SendBoundBufsWithRestrictOption<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &,
                                                         bool);
+template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::remesh_send>(
+    std::shared_ptr<MeshData<Real>> &, bool);
+template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::remesh_halo>(
+    std::shared_ptr<MeshData<Real>> &, bool);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -256,6 +268,10 @@ template TaskStatus
 StartReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 StartReceiveBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::remesh_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::remesh_halo>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -311,6 +327,10 @@ template TaskStatus
 ReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ReceiveBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::remesh_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::remesh_halo>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -330,6 +350,11 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetInteriorProlongate);
     } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetNull);
+    } else if constexpr (bound_type == BoundaryType::remesh_recv) {
+      // Prolongation onto newly refined blocks happens after all remesh data has
+      // arrived, so nothing is prolongated or restricted when setting
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetNull);
     } else {
@@ -440,6 +465,10 @@ SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SetBounds<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::remesh_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::remesh_halo>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -480,6 +509,8 @@ template TaskStatus
 ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateBounds<BoundaryType::remesh_halo>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateInternalBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -523,6 +554,8 @@ template TaskStatus ProlongateInternalBounds<BoundaryType::gmg_prolongate_recv>(
     std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateInternalBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateInternalBounds<BoundaryType::remesh_halo>(std::shared_ptr<MeshData<Real>> &);
 
 bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md) {
   return md->GetMeshPointer()->multilevel;

@@ -27,10 +27,13 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <map>
+#include <memory>
 #include <numeric>
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -38,9 +41,13 @@
 #include "parthenon_mpi.hpp"
 
 #include "bvals/boundary_conditions.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
+#include "bvals/comms/coalesced_buffers.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/update.hpp"
+#include "mesh/forest/block_ownership.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -51,264 +58,225 @@
 
 namespace parthenon {
 
-#ifdef MPI_PARALLEL
+namespace {
+
+// Wait for all outstanding boundary communication to finish, then discard every
+// communication buffer, coalesced message structure, and tag. Remesh communication
+// builds its own (temporary) channels on top of an empty communication infrastructure,
+// and the ordinary halo infrastructure is rebuilt for the new mesh afterwards.
+void ResetCommunicationInfrastructure(Mesh *pmesh) {
+  bool can_delete;
+  std::int64_t test_iters = 0;
+  constexpr std::int64_t max_it = 1e10;
+  do {
+    can_delete = true;
+    for (auto &[k, comm] : pmesh->boundary_comm_map) {
+      can_delete = comm.IsSafeToDelete() && can_delete;
+    }
+    test_iters++;
+  } while (!can_delete && test_iters < max_it);
+  PARTHENON_REQUIRE(test_iters < max_it,
+                    "Too many iterations waiting to delete communication buffers.");
+  pmesh->boundary_comm_map.clear();
+  pmesh->pcoalesced_comms->clear();
+  pmesh->tag_map.clear();
+}
+
+void ExchangeCoalescedBufferInfo(Mesh *pmesh) {
+  if (pmesh->do_coalesced_comms) {
+    pmesh->pcoalesced_comms->ResolveAndSendSendBuffers();
+    pmesh->pcoalesced_comms->ReceiveBufferInfo();
+  }
+}
+
+// Run one complete exchange over already-built channels: post receives, pack and send
+// (restricting first where the receiver is coarser), wait for all receives, and unpack.
+template <BoundaryType SEND, BoundaryType RECV>
+void ExchangeBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md_send,
+                             std::shared_ptr<MeshData<Real>> &md_recv) {
+  const bool have_send = md_send->NumBlocks() > 0;
+  const bool have_recv = md_recv->NumBlocks() > 0;
+  constexpr std::int64_t max_it = 1e10;
+  if (have_recv) StartReceiveBoundBufs<RECV>(md_recv);
+  std::int64_t iters = 0;
+  if (have_send) {
+    while (SendBoundBufs<SEND>(md_send) != TaskStatus::complete && ++iters < max_it) {
+    }
+  }
+  if (have_recv) {
+    while (ReceiveBoundBufs<RECV>(md_recv) != TaskStatus::complete && ++iters < max_it) {
+    }
+    SetBounds<RECV>(md_recv);
+  }
+  PARTHENON_REQUIRE(iters < max_it, "Remesh communication did not complete.");
+}
+
+// Variables carried across a remesh that ordinary halo exchanges do not touch
+std::vector<std::string> GetNonFillGhostRemeshedVariables(StateDescriptor *pkg,
+                                                          bool only_non_cell = false) {
+  std::vector<std::string> names;
+  for (const auto &[vid, m] : pkg->AllFields()) {
+    const bool remeshed = m.IsSet(Metadata::Independent) ||
+                          m.IsSet(Metadata::FillGhost) ||
+                          m.IsSet(Metadata::ForceRemeshComm);
+    if (!remeshed || m.IsSet(Metadata::FillGhost)) continue;
+    if (only_non_cell &&
+        !(m.IsSet(Metadata::Face) || m.IsSet(Metadata::Edge) || m.IsSet(Metadata::Node)))
+      continue;
+    names.push_back(vid.label());
+  }
+  return names;
+}
+
+// Gids of the blocks in the other mesh (described by gid_of) that overlap loc. For a
+// one-level remesh this is the same location, its parent, or all of its daughters.
+std::vector<int>
+GetOverlappingGids(const LogicalLocation &loc,
+                   const std::unordered_map<LogicalLocation, int> &gid_of, int ndim) {
+  auto same = gid_of.find(loc);
+  if (same != gid_of.end()) return std::vector<int>{same->second};
+  auto parent = gid_of.find(loc.GetParent());
+  if (parent != gid_of.end()) return std::vector<int>{parent->second};
+  std::vector<int> gids;
+  for (const auto &d : loc.GetDaughters(ndim)) {
+    auto it = gid_of.find(d);
+    PARTHENON_REQUIRE(it != gid_of.end(),
+                      "Remeshing only supports one level of refinement per block.");
+    gids.push_back(it->second);
+  }
+  std::sort(gids.begin(), gids.end());
+  return gids;
+}
+
+} // namespace
+
 //----------------------------------------------------------------------------------------
-//! \fn int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3)
-//  \brief calculate an MPI tag for AMR block transfer
-// tag = local id of destination (remaining bits) + ox1(1 bit) + ox2(1 bit) + ox3(1 bit)
-//       + physics(5 bits)
+// \brief Build the remesh "neighbor" lists connecting old blocks on this rank to the new
+// blocks that overlap them, and new blocks on this rank to the old blocks that overlap
+// them. Blocks that are reused in place (same location, same rank) get no channels.
+// New blocks are referred to by gid + new_gid_offset so that their channel keys and tags
+// cannot collide with those of old blocks.
 
-int CreateAMRMPITag(int lid, std::optional<LogicalLocation> loc = {}) {
-  // the trailing zero is used as "id" to indicate an AMR related tag
-  int tag = lid << 8;
-  if (loc) {
-    auto offsets = (*loc).GetLocationInParent();
-    tag = tag | (offsets[0] << 7) | (offsets[1] << 6) | (offsets[2] << 5) | 0;
+void Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs,
+                               const BlockList_t &new_blocks, int nbs,
+                               const std::vector<LogicalLocation> &newloc,
+                               const std::vector<int> &newrank,
+                               const std::unordered_map<LogicalLocation, int> &old_gid_of,
+                               const std::unordered_map<LogicalLocation, int> &new_gid_of,
+                               int new_gid_offset) {
+  const auto make_nb = [this](const LogicalLocation &loc, int rank, int gid) {
+    return NeighborBlock(this, loc, loc, rank, gid, Kokkos::Array<int, 3>{0, 0, 0}, 0, 0,
+                         0, 0, 0);
+  };
+  for (auto &pmb : old_blocks)
+    pmb->remesh_neighbors.clear();
+  for (auto &pmb : new_blocks)
+    pmb->remesh_neighbors.clear();
+
+  // Senders: old blocks on this rank
+  for (int i = 0; i < old_blocks.size(); ++i) {
+    auto &pmb = old_blocks[i];
+    const int on = onbs + i;
+    for (int nn : GetOverlappingGids(loclist[on], new_gid_of, ndim)) {
+      // Same location on the same rank means the block object is reused as is
+      if (newloc[nn] == loclist[on] && newrank[nn] == Globals::my_rank) continue;
+      pmb->remesh_neighbors.push_back(
+          make_nb(newloc[nn], newrank[nn], nn + new_gid_offset));
+    }
   }
-  return tag;
+
+  // Receivers: new blocks on this rank that are not reused old blocks
+  for (int i = 0; i < new_blocks.size(); ++i) {
+    auto &pmb = new_blocks[i];
+    const int nn = nbs + i;
+    const auto ogids = GetOverlappingGids(newloc[nn], old_gid_of, ndim);
+    if (loclist[ogids[0]] == newloc[nn] && ranklist[ogids[0]] == Globals::my_rank)
+      continue;
+    for (int on : ogids)
+      pmb->remesh_neighbors.push_back(make_nb(loclist[on], ranklist[on], on));
+    if (ogids.size() > 1) {
+      // A coarsened block receives from all of its daughters, which share elements in
+      // the interior of the parent; assign each shared element to a single daughter.
+      std::vector<forest::NeighborLocation> daughters;
+      for (const auto &nb : pmb->remesh_neighbors)
+        daughters.emplace_back(nb.loc, nb.loc, forest::LogicalCoordinateTransformation());
+      for (auto &nb : pmb->remesh_neighbors)
+        nb.ownership = DetermineOwnership(nb.loc, daughters, false);
+    }
+  }
 }
 
-MPI_Request SendCoarseToFine(int lid_recv, int dest_rank, const LogicalLocation &fine_loc,
-                             Variable<Real> *var, Mesh *pmesh) {
-  MPI_Request req;
-  MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, fine_loc);
-  if (var->IsAllocated()) {
-    PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
-                                  dest_rank, tag, comm, &req));
-  } else {
+//----------------------------------------------------------------------------------------
+// \brief Same-level moves between ranks also carry per-block and per-variable counters
+// (derefinement count, sparse deallocation counters) that are not field data. They are
+// exchanged here in one integer message per pair of ranks.
+
+void Mesh::ExchangeRemeshCounters_(const BlockList_t &old_blocks, int onbs,
+                                   const BlockList_t &new_blocks, int nbs,
+                                   const std::vector<int> &oldtonew,
+                                   const std::vector<int> &newtoold,
+                                   const std::vector<LogicalLocation> &newloc,
+                                   const std::vector<int> &newrank) {
+#ifdef MPI_PARALLEL
+  const auto sorted_labels = [](const MeshBlock *pmb) {
+    std::vector<std::string> labels;
+    for (const auto &v : pmb->vars_cc_)
+      labels.push_back(v->label());
+    std::sort(labels.begin(), labels.end());
+    return labels;
+  };
+
+  // Pack: for each block, the derefinement count and then the dealloc count of each
+  // remeshed variable in label order
+  std::map<int, std::vector<int>> send_data;
+  for (int i = 0; i < old_blocks.size(); ++i) {
+    const int on = onbs + i;
+    const int nn = oldtonew[on];
+    if (newloc[nn] != loclist[on] || newrank[nn] == Globals::my_rank) continue;
+    auto &pmb = old_blocks[i];
+    auto &buf = send_data[newrank[nn]];
+    buf.push_back(pmb->pmr ? pmb->pmr->DerefinementCount() : 0);
+    for (const auto &label : sorted_labels(pmb.get()))
+      buf.push_back(pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count);
+  }
+
+  std::map<int, std::vector<int>> recv_data;
+  std::map<int, std::vector<MeshBlock *>> recv_blocks;
+  for (int i = 0; i < new_blocks.size(); ++i) {
+    const int nn = nbs + i;
+    const int on = newtoold[nn];
+    if (newloc[nn] != loclist[on] || ranklist[on] == Globals::my_rank) continue;
+    recv_blocks[ranklist[on]].push_back(new_blocks[i].get());
+  }
+  for (auto &[rank, blocks] : recv_blocks)
+    recv_data[rank].resize(blocks.size() * (1 + blocks[0]->vars_cc_.size()));
+
+  MPI_Comm comm = GetMPIComm(remesh_counter_comm_label);
+  std::vector<MPI_Request> reqs;
+  for (auto &[rank, buf] : recv_data) {
+    reqs.emplace_back();
     PARTHENON_MPI_CHECK(
-        MPI_Isend(var->data.data(), 0, MPI_PARTHENON_REAL, dest_rank, tag, comm, &req));
+        MPI_Irecv(buf.data(), buf.size(), MPI_INT, rank, 0, comm, &reqs.back()));
   }
-  return req;
-}
-#endif
-
-bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
-                         Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
-                         Mesh *pmesh) {
-  int test = 1;
-#ifdef MPI_PARALLEL
-  MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, fine_loc);
-  MPI_Status status;
-  PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
-#endif
-  if (test) {
-    int size = var_in->IsAllocated();
-#ifdef MPI_PARALLEL
-    PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPI_PARTHENON_REAL, &size));
-#endif
-    if (size > 0) {
-      if (!pmb->IsAllocated(var->label())) pmb->AllocateSparse(var->label());
-      auto fb = var_in->data;
-#ifdef MPI_PARALLEL
-      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
-                                   send_rank, tag, comm, MPI_STATUS_IGNORE));
-      fb = var->data;
-#endif
-      auto cb = var->coarse_s;
-      const int nt = fb.GetDim(6) - 1;
-      const int nu = fb.GetDim(5) - 1;
-      const int nv = fb.GetDim(4) - 1;
-
-      auto &cellbounds = var->IsSet(Metadata::Fine) ? pmb->f_cellbounds : pmb->cellbounds;
-      auto &c_cellbounds =
-          var->IsSet(Metadata::Fine) ? pmb->cellbounds : pmb->c_cellbounds;
-      for (auto te : var->GetTopologicalElements()) {
-        const auto te_entire = var->IsSet(Metadata::CellMemAligned) ? TE::CC : te;
-        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::entire, te_entire);
-        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::entire, te_entire);
-        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::entire, te_entire);
-
-        IndexRange ib_int = cellbounds.GetBoundsI(IndexDomain::interior, te);
-        IndexRange jb_int = cellbounds.GetBoundsJ(IndexDomain::interior, te);
-        IndexRange kb_int = cellbounds.GetBoundsK(IndexDomain::interior, te);
-
-        const auto [ox1, ox2, ox3] = fine_loc.GetLocationInParent();
-        const int ks = (ox3 == 0) ? 0 : (kb_int.e - kb_int.s + 1) / 2;
-        const int js = (ox2 == 0) ? 0 : (jb_int.e - jb_int.s + 1) / 2;
-        const int is = (ox1 == 0) ? 0 : (ib_int.e - ib_int.s + 1) / 2;
-        const int idx_te = static_cast<int>(te) % 3;
-        parthenon::par_for(
-            PARTHENON_AUTO_LABEL, 0, nt, 0, nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-            KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
-                          const int i) {
-              cb(idx_te, t, u, v, k, j, i) = fb(idx_te, t, u, v, k + ks, j + js, i + is);
-            });
-      }
-    } else {
-      if (pmb->IsAllocated(var->label()) &&
-          !var->metadata().IsSet(Metadata::ForceAllocOnNewBlocks))
-        pmb->DeallocateSparse(var->label());
-#ifdef MPI_PARALLEL
-      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0, MPI_PARTHENON_REAL, send_rank,
-                                   tag, comm, MPI_STATUS_IGNORE));
-#endif
-    }
-  }
-
-  return test;
-}
-
-#ifdef MPI_PARALLEL
-MPI_Request SendFineToCoarse(int lid_recv, int dest_rank, const LogicalLocation &fine_loc,
-                             Variable<Real> *var, Mesh *pmesh) {
-  MPI_Request req;
-  MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, fine_loc);
-  if (var->IsAllocated()) {
-    PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), var->coarse_s.size(),
-                                  MPI_PARTHENON_REAL, dest_rank, tag, comm, &req));
-  } else {
-    PARTHENON_MPI_CHECK(MPI_Isend(var->coarse_s.data(), 0, MPI_PARTHENON_REAL, dest_rank,
-                                  tag, comm, &req));
-  }
-  return req;
-}
-#endif
-
-bool TryRecvFineToCoarse(int lid_recv, int send_rank, const LogicalLocation &fine_loc,
-                         Variable<Real> *var_in, Variable<Real> *var, MeshBlock *pmb,
-                         Mesh *pmesh) {
-  const int ndim = pmb->pmy_mesh->ndim;
-  int test = 1;
-#ifdef MPI_PARALLEL
-  MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv, fine_loc);
-  MPI_Status status;
-  PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
-#endif
-  if (test) {
-    int size = var_in->IsAllocated();
-#ifdef MPI_PARALLEL
-    PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPI_PARTHENON_REAL, &size));
-#endif
-    if (size > 0) {
-      if (!pmb->IsAllocated(var->label())) pmb->AllocateSparse(var->label());
-      auto cb = var_in->coarse_s;
-#ifdef MPI_PARALLEL
-      // This has to be an MPI_Recv w/o buffering
-      PARTHENON_MPI_CHECK(MPI_Recv(var->coarse_s.data(), var->coarse_s.size(),
-                                   MPI_PARTHENON_REAL, send_rank, tag, comm,
-                                   MPI_STATUS_IGNORE));
-      cb = var->coarse_s;
-#endif
-      auto fb = var->data;
-      const int nt = fb.GetDim(6) - 1;
-      const int nu = fb.GetDim(5) - 1;
-      const int nv = fb.GetDim(4) - 1;
-
-      auto &c_cellbounds =
-          var->IsSet(Metadata::Fine) ? pmb->cellbounds : pmb->c_cellbounds;
-      for (auto te : var->GetTopologicalElements()) {
-        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::interior, te);
-        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::interior, te);
-        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::interior, te);
-        // Deal with ownership of shared elements by removing right side of index
-        // space if fine block is on the left side of a direction. I think this
-        // should work fine even if the ownership model is changed elsewhere, since
-        // the fine blocks should be consistent in their shared elements at this point
-        const auto [ox1, ox2, ox3] = fine_loc.GetLocationInParent();
-        if (ox3 == 0 && ndim > 2) kb.e -= TopologicalOffsetK(te);
-        if (ox2 == 0 && ndim > 1) jb.e -= TopologicalOffsetJ(te);
-        if (ox1 == 0) ib.e -= TopologicalOffsetI(te);
-        const int ks =
-            (ox3 == 0 || ndim < 3) ? 0 : (kb.e - kb.s + 1 - TopologicalOffsetK(te));
-        const int js =
-            (ox2 == 0 || ndim < 2) ? 0 : (jb.e - jb.s + 1 - TopologicalOffsetJ(te));
-        const int is = (ox1 == 0) ? 0 : (ib.e - ib.s + 1 - TopologicalOffsetI(te));
-        const int idx_te = static_cast<int>(te) % 3;
-        parthenon::par_for(
-            PARTHENON_AUTO_LABEL, 0, nt, 0, nu, 0, nv, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-            KOKKOS_LAMBDA(const int t, const int u, const int v, const int k, const int j,
-                          const int i) {
-              fb(idx_te, t, u, v, k + ks, j + js, i + is) = cb(idx_te, t, u, v, k, j, i);
-            });
-      }
-      // We have to block here w/o buffering so that the write is guaranteed to be
-      // finished before another fine block that is restricted to a sub-region of
-      // this coarse block makes an MPI call and overwrites the coarse buffer.
-      Kokkos::fence();
-    } else {
-#ifdef MPI_PARALLEL
-      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), 0, MPI_PARTHENON_REAL, send_rank,
-                                   tag, comm, MPI_STATUS_IGNORE));
-#endif
-    }
-  }
-
-  return test;
-}
-
-#ifdef MPI_PARALLEL
-MPI_Request SendSameToSame(int lid_recv, int dest_rank, Variable<Real> *var,
-                           MeshBlock *pmb, Mesh *pmesh) {
-  MPI_Request req;
-  MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv);
-  if (var->IsAllocated()) {
-    // Metadata about this field also needs to be copied from this rank to the
-    // receiving rank (namely the dereference count and the dealloc_count). Not
-    // doing this can cause some subtle differences between runs of the same
-    // problem on different numbers of ranks. Rather than send individual messages,
-    // we just package these in the first two ghost zones of the block. This is ok
-    // because the AMR communication is only required to communicate the interior
-    // zones. The ghosts are communicated to prevent the need to allocate buffers,
-    // but the data in them is not required to be valid. This requires that we have
-    // at least two ghost zones.
-    PARTHENON_REQUIRE(
-        Globals::nghost > 1,
-        "AMR SameToSame communication requires blocks to have at least two ghost zones");
-    auto counter_subview = Kokkos::subview(var->data, std::make_pair(0, 2));
-    auto counter_subview_h = Kokkos::create_mirror_view(HostMemSpace(), counter_subview);
-    counter_subview_h(0) = pmb->pmr->DerefinementCount();
-    counter_subview_h(1) = var->dealloc_count;
-    Kokkos::deep_copy(counter_subview, counter_subview_h);
-
-    PARTHENON_MPI_CHECK(MPI_Isend(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
-                                  dest_rank, tag, comm, &req));
-  } else {
-    var->com_state[0] = pmb->pmr->DerefinementCount();
-    var->com_state[1] = var->dealloc_count;
+  for (auto &[rank, buf] : send_data) {
+    reqs.emplace_back();
     PARTHENON_MPI_CHECK(
-        MPI_Isend(var->com_state, 2, MPI_INT, dest_rank, tag, comm, &req));
+        MPI_Isend(buf.data(), buf.size(), MPI_INT, rank, 0, comm, &reqs.back()));
   }
-  return req;
-}
+  PARTHENON_MPI_CHECK(MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE));
 
-bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlock *pmb,
-                       Mesh *pmesh) {
-  MPI_Comm comm = pmesh->GetMPIComm(var->label());
-  int tag = CreateAMRMPITag(lid_recv);
-  int test;
-  MPI_Status status;
-  PARTHENON_MPI_CHECK(MPI_Iprobe(send_rank, tag, comm, &test, &status));
-  if (test) {
-    int size;
-    PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPI_PARTHENON_REAL, &size));
-    if (size > 2) {
-      if (!pmb->IsAllocated(var->label())) pmb->AllocateSparse(var->label());
-      PARTHENON_MPI_CHECK(MPI_Recv(var->data.data(), var->data.size(), MPI_PARTHENON_REAL,
-                                   send_rank, tag, comm, MPI_STATUS_IGNORE));
-      auto counter_subview = Kokkos::subview(var->data, std::make_pair(0, 2));
-      auto counter_subview_h =
-          Kokkos::create_mirror_view_and_copy(HostMemSpace(), counter_subview);
-      pmb->pmr->DerefinementCount() = counter_subview_h(0);
-      var->dealloc_count = counter_subview_h(1);
-    } else {
-      if (pmb->IsAllocated(var->label()) &&
-          !var->metadata().IsSet(Metadata::ForceAllocOnNewBlocks))
-        pmb->DeallocateSparse(var->label());
-      PARTHENON_MPI_CHECK(
-          MPI_Recv(var->com_state, 2, MPI_INT, send_rank, tag, comm, MPI_STATUS_IGNORE));
-      pmb->pmr->DerefinementCount() = var->com_state[0];
-      var->dealloc_count = var->com_state[1];
+  for (auto &[rank, blocks] : recv_blocks) {
+    const auto &buf = recv_data[rank];
+    std::size_t idx = 0;
+    for (auto *pmb : blocks) {
+      const int deref = buf[idx++];
+      if (pmb->pmr) pmb->pmr->DerefinementCount() = deref;
+      for (const auto &label : sorted_labels(pmb))
+        pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count = buf[idx++];
     }
   }
-  return test;
-}
 #endif
+}
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin)
@@ -652,63 +620,51 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // kill all old MeshData
   mesh_data.clear();
 
-  // compute nleaf= number of leaf MeshBlocks per refined block
-  int nleaf = 2;
-  if (!mesh_size.symmetry(X2DIR)) nleaf = 4;
-  if (!mesh_size.symmetry(X3DIR)) nleaf = 8;
-
   // construct new lists
-  std::vector<LogicalLocation> newloc(ntot);
+  const int nbtold = nbtotal;
+  std::vector<LogicalLocation> newloc;
   std::vector<int> newrank(ntot);
   std::vector<double> newcost(ntot);
   std::vector<int> newtoold(ntot);
-  std::vector<int> oldtonew(nbtotal);
-  int nbtold = nbtotal;
+  std::vector<int> oldtonew(nbtold);
   std::unordered_set<LogicalLocation> newly_refined;
   // store old nbstart and nbend before load balancing.
-  int onbs = nslist[Globals::my_rank];
-  int onbe = onbs + nblist[Globals::my_rank] - 1;
+  const int onbs = nslist[Globals::my_rank];
+  const int onbe = onbs + nblist[Globals::my_rank] - 1;
 
+  // Everything about how old and new blocks relate follows from the old list of logical
+  // locations (loclist) and the new one (newloc)
+  std::unordered_map<LogicalLocation, int> old_gid_of, new_gid_of;
   { // Construct new list region
     PARTHENON_INSTRUMENT
     newloc = forest.GetMeshBlockListAndResolveGids();
     nbtotal = newloc.size();
-    for (int ib = 0; ib < nbtotal; ++ib)
-      newtoold[ib] = forest.GetOldGid(newloc[ib]);
+    PARTHENON_REQUIRE(nbtotal == ntot, "Unexpected number of blocks after remeshing.");
+    old_gid_of.reserve(nbtold);
+    new_gid_of.reserve(nbtotal);
+    for (int on = 0; on < nbtold; ++on)
+      old_gid_of[loclist[on]] = on;
+    for (int nn = 0; nn < nbtotal; ++nn)
+      new_gid_of[newloc[nn]] = nn;
 
-    // create a list mapping the previous gid to the current one
-    oldtonew[0] = 0;
-    int mb_idx = 1;
-    for (int n = 1; n < ntot; n++) {
-      if (newtoold[n] == newtoold[n - 1] + 1) { // normal
-        oldtonew[mb_idx++] = n;
-      } else if (newtoold[n] == newtoold[n - 1] + nleaf) { // derefined
-        for (int j = 0; j < nleaf - 1; j++)
-          oldtonew[mb_idx++] = n - 1;
-        oldtonew[mb_idx++] = n;
-      }
-    }
-    // fill the last block
-    for (; mb_idx < nbtold; mb_idx++)
-      oldtonew[mb_idx] = ntot - 1;
+    for (int on = 0; on < nbtold; ++on)
+      oldtonew[on] = GetOverlappingGids(loclist[on], new_gid_of, ndim)[0];
 
     current_level = 0;
-    for (int n = 0; n < ntot; n++) {
+    for (int nn = 0; nn < nbtotal; ++nn) {
+      const auto ogids = GetOverlappingGids(newloc[nn], old_gid_of, ndim);
       // "on" = "old n" = "old gid" = "old global MeshBlock ID"
-      int on = newtoold[n];
-      if (newloc[n].level() > current_level) // set the current max level
-        current_level = newloc[n].level();
-      if (newloc[n].level() >= loclist[on].level()) { // same or refined
-        newcost[n] = costlist[on];
-        // Keep a list of all blocks refined for below
-        if (newloc[n].level() > loclist[on].level()) {
-          newly_refined.insert(newloc[n]);
-        }
-      } else {
+      const int on = ogids[0];
+      newtoold[nn] = on;
+      current_level = std::max(current_level, newloc[nn].level());
+      if (newloc[nn].level() >= loclist[on].level()) { // same or refined
+        newcost[nn] = costlist[on];
+        if (newloc[nn].level() > loclist[on].level()) newly_refined.insert(newloc[nn]);
+      } else { // derefined
         double acost = 0.0;
-        for (int l = 0; l < nleaf; l++)
-          acost += costlist[on + l];
-        newcost[n] = acost / nleaf;
+        for (int og : ogids)
+          acost += costlist[og];
+        newcost[nn] = acost / ogids.size();
       }
     }
   } // Construct new list region
@@ -716,70 +672,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // Calculate new load balance
   CalculateLoadBalance(newcost, newrank, nslist, nblist);
 
-  int nbs = nslist[Globals::my_rank];
-  int nbe = nbs + nblist[Globals::my_rank] - 1;
-
-  // Restrict fine to coarse buffers
-  if (block_list.size() > 0) {
-    ProResCache_t restriction_cache;
-    int nrestrict = 0;
-    for (int on = onbs; on <= onbe; on++) {
-      int nn = oldtonew[on];
-      auto pmb = FindMeshBlock(on);
-      if (newloc[nn].level() < loclist[on].level()) nrestrict += pmb->vars_cc_.size();
-    }
-    restriction_cache.Initialize(nrestrict, resolved_packages.get());
-    int irestrict = 0;
-    for (int on = onbs; on <= onbe; on++) {
-      int nn = oldtonew[on];
-      if (newloc[nn].level() < loclist[on].level()) {
-        auto pmb = FindMeshBlock(on);
-        for (auto &var : pmb->vars_cc_) {
-          restriction_cache.RegisterRegionHost(
-              irestrict++,
-              ProResInfo::GetInteriorRestrict(pmb.get(), NeighborBlock(), var), var.get(),
-              resolved_packages.get());
-        }
-      }
-    }
-    restriction_cache.CopyToDevice();
-    refinement::Restrict(resolved_packages.get(), restriction_cache,
-                         block_list[0]->cellbounds, block_list[0]->c_cellbounds);
-  }
-  Kokkos::fence();
-
-#ifdef MPI_PARALLEL
-  // Send data from old to new blocks
-  std::vector<MPI_Request> send_reqs;
-  { // AMR Send region
-    PARTHENON_INSTRUMENT
-    for (int n = onbs; n <= onbe; n++) {
-      int nn = oldtonew[n];
-      LogicalLocation &oloc = loclist[n];
-      LogicalLocation &nloc = newloc[nn];
-      auto pb = FindMeshBlock(n);
-      if (nloc.level() == oloc.level() &&
-          newrank[nn] != Globals::my_rank) { // same level, different rank
-        for (auto &var : pb->vars_cc_)
-          send_reqs.emplace_back(SendSameToSame(nn - nslist[newrank[nn]], newrank[nn],
-                                                var.get(), pb.get(), this));
-      } else if (nloc.level() > oloc.level()) { // c2f
-        // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
-        for (int l = 0; l < nleaf; l++) {
-          const int nl = nn + l; // Leaf block index in new global block list
-          LogicalLocation &nloc = newloc[nl];
-          for (auto &var : pb->vars_cc_)
-            send_reqs.emplace_back(SendCoarseToFine(nl - nslist[newrank[nl]], newrank[nl],
-                                                    nloc, var.get(), this));
-        } // end loop over nleaf (unique to c2f branch in this step 6)
-      } else if (nloc.level() < oloc.level()) { // f2c: restrict + pack + send
-        for (auto &var : pb->vars_cc_)
-          send_reqs.emplace_back(SendFineToCoarse(nn - nslist[newrank[nn]], newrank[nn],
-                                                  oloc, var.get(), this));
-      }
-    }
-  } // AMR Send region
-#endif // MPI_PARALLEL
+  const int nbs = nslist[Globals::my_rank];
+  const int nbe = nbs + nblist[Globals::my_rank] - 1;
 
   // Construct a new MeshBlock list (moving the data within the MPI rank)
   BlockList_t new_block_list(nbe - nbs + 1);
@@ -789,28 +683,64 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
-      if ((ranklist[on] == Globals::my_rank) &&
-          (loclist[on].level() == newloc[n].level())) {
-        // on the same MPI rank and same level -> just move it
+      if ((ranklist[on] == Globals::my_rank) && (loclist[on] == newloc[n])) {
+        // on the same MPI rank and same location -> just move it
         new_block_list[n - nbs] = FindMeshBlock(on);
-        if (!new_block_list[n - nbs]) {
-          BoundaryFlag block_bcs[6];
-          SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
-          new_block_list[n - nbs] =
-              MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
-                              app_in, packages, resolved_packages, gflag);
-        }
       } else {
         // on a different refinement level or MPI rank - create a new block
         BoundaryFlag block_bcs[6];
         SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
-        // append new block to list of MeshBlocks
         new_block_list[n - nbs] =
             MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
                             app_in, packages, resolved_packages, gflag);
+        // Newly created blocks are identified by an offset gid while communicating from
+        // the old mesh, so that they are distinct from the old blocks
+        new_block_list[n - nbs]->gid = n + nbtold;
       }
     }
   } // AMR Construct new MeshBlockList region
+
+  { // AMR communicate field data from the old blocks to the new blocks
+    PARTHENON_INSTRUMENT
+    SetRemeshNeighbors_(block_list, onbs, new_block_list, nbs, newloc, newrank,
+                        old_gid_of, new_gid_of, nbtold);
+
+    auto md_old = std::make_shared<MeshData<Real>>("base", block_list, this);
+    auto md_new = std::make_shared<MeshData<Real>>("base", new_block_list, this);
+    md_old->partition = 0;
+    md_new->partition = 0;
+
+    // Prolongation onto newly refined blocks uses the ghost zones of their parents. These
+    // are already valid for FillGhost variables, but nothing else fills them for
+    // remeshed variables that are not FillGhost, so exchange those first.
+    if (newly_refined.size() > 0 &&
+        GetNonFillGhostRemeshedVariables(resolved_packages.get()).size() > 0) {
+      ResetCommunicationInfrastructure(this);
+      AddToTagMap<BoundaryType::remesh_halo>(md_old);
+      tag_map.ResolveMap();
+      BuildRemeshHaloBuffers(md_old);
+      ExchangeCoalescedBufferInfo(this);
+      ExchangeBoundaryBuffers<BoundaryType::remesh_halo, BoundaryType::remesh_halo>(
+          md_old, md_old);
+      if (md_old->NumBlocks() > 0) {
+        ProlongateBounds<BoundaryType::remesh_halo>(md_old);
+        ProlongateInternalBounds<BoundaryType::remesh_halo>(md_old);
+      }
+    }
+
+    // Transfer (and restrict where needed) the field data
+    ResetCommunicationInfrastructure(this);
+    AddToTagMap<BoundaryType::remesh_send>(md_old);
+    AddToTagMap<BoundaryType::remesh_recv>(md_new);
+    tag_map.ResolveMap();
+    BuildRemeshBoundaryBuffers(md_old, md_new);
+    ExchangeCoalescedBufferInfo(this);
+    ExchangeBoundaryBuffers<BoundaryType::remesh_send, BoundaryType::remesh_recv>(md_old,
+                                                                                  md_new);
+    ExchangeRemeshCounters_(block_list, onbs, new_block_list, nbs, oldtonew, newtoold,
+                            newloc, newrank);
+    Kokkos::fence();
+  }
 
   // Replace the MeshBlock list
   auto old_block_list = std::move(block_list);
@@ -820,77 +750,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   for (int n = nbs; n <= nbe; n++) {
     block_list[n - nbs]->gid = n;
     block_list[n - nbs]->lid = n - nbs;
+    block_list[n - nbs]->remesh_neighbors.clear();
   }
   BuildBlockPartitions(GridIdentifier::leaf());
 
-  // Receive the data and load into MeshBlocks
-  { // AMR Recv and unpack data
+  { // AMR finalize new mesh
     PARTHENON_INSTRUMENT
-    bool all_received;
-    int niter = 0;
-    if (block_list.size() > 0) {
-      // Create a vector for holding the status of all communications, it is sized to fit
-      // the maximal number of calculations that this rank could receive: the number of
-      // blocks on the rank x the number of variables x times the number of fine blocks
-      // that would communicate if every block had been coarsened (8 in 3D)
-      std::vector<bool> finished(
-          std::max((nbe - nbs + 1), 1) * FindMeshBlock(nbs)->vars_cc_.size() * 8, false);
-      do {
-        all_received = true;
-        niter++;
-        int idx = 0;
-        for (int n = nbs; n <= nbe; n++) {
-          int on = newtoold[n];
-          LogicalLocation &oloc = loclist[on];
-          LogicalLocation &nloc = newloc[n];
-          auto pb = FindMeshBlock(n);
-          if (oloc.level() == nloc.level() &&
-              ranklist[on] != Globals::my_rank) { // same level, different rank
-#ifdef MPI_PARALLEL
-            for (auto &var : pb->vars_cc_) {
-              if (!finished[idx])
-                finished[idx] =
-                    TryRecvSameToSame(n - nbs, ranklist[on], var.get(), pb.get(), this);
-              all_received = finished[idx++] && all_received;
-            }
-#endif
-          } else if (oloc.level() > nloc.level()) { // f2c
-            for (int l = 0; l < nleaf; l++) {
-              auto pob = pb;
-              if (ranklist[on + l] == Globals::my_rank)
-                pob = old_block_list[on + l - onbs];
-              LogicalLocation &oloc = loclist[on + l];
-              for (auto &var : pb->vars_cc_) {
-                if (!finished[idx]) {
-                  auto var_in = pob->meshblock_data.Get()->GetVarPtr(var->label());
-                  finished[idx] =
-                      TryRecvFineToCoarse(n - nbs, ranklist[on + l], oloc, var_in.get(),
-                                          var.get(), pb.get(), this);
-                }
-                all_received = finished[idx++] && all_received;
-              }
-            }
-          } else if (oloc.level() < nloc.level()) { // c2f
-            for (auto &var : pb->vars_cc_) {
-              if (!finished[idx]) {
-                auto pob = pb;
-                if (ranklist[on] == Globals::my_rank) pob = old_block_list[on - onbs];
-                auto var_in = pob->meshblock_data.Get()->GetVarPtr(var->label());
-                finished[idx] = TryRecvCoarseToFine(
-                    n - nbs, ranklist[on], nloc, var_in.get(), var.get(), pb.get(), this);
-              }
-              all_received = finished[idx++] && all_received;
-            }
-          }
-        }
-        // rb_idx is a running index, so we repeat the loop until all vals are true
-      } while (!all_received && niter < 1e7);
-      if (!all_received) PARTHENON_FAIL("AMR Receive failed");
-    }
-    // Fence here to be careful that all communication is finished before moving
-    // on to prolongation
-    Kokkos::fence();
-
     // Prolongate blocks that had a coarse buffer filled (i.e. c2f blocks)
     ProResCache_t prolongation_cache;
     int nprolong = 0;
@@ -913,18 +778,18 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                 var.get(), resolved_packages.get());
           }
         }
-        prolongation_cache.CopyToDevice();
       }
+      prolongation_cache.CopyToDevice();
       refinement::ProlongateShared(resolved_packages.get(), prolongation_cache,
                                    block_list[0]->cellbounds,
                                    block_list[0]->c_cellbounds);
     }
 
-    // Field data is transferred by the usual AMR same-level, restriction, and
-    // prolongation paths above because the field layout is tied directly to block
-    // topology. Swarms are different: after remesh, ownership is determined by which new
-    // leaf block contains each particle. Run that ownership-based redistribution only
-    // after the new leaf mesh and field state are already in place.
+    // Field data is transferred by the remesh channels above because the field layout
+    // is tied directly to block topology. Swarms are different: after remesh, ownership
+    // is determined by which new leaf block contains each particle. Run that
+    // ownership-based redistribution only after the new leaf mesh and field state are
+    // already in place.
     const SwarmRemeshContext swarm_remesh_context(onbs, onbe, oldtonew, loclist, newloc,
                                                   ranklist, newrank);
     RemeshSwarms(resolved_packages, old_block_list, this, swarm_remesh_context);
@@ -937,12 +802,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     BuildGMGBlockLists(pin, app_in);
 
-    // Make sure all old sends/receives are done before we reconfigure the mesh
-#ifdef MPI_PARALLEL
-    if (send_reqs.size() != 0)
-      PARTHENON_MPI_CHECK(
-          MPI_Waitall(send_reqs.size(), send_reqs.data(), MPI_STATUSES_IGNORE));
-#endif
     // init meshblock data
     for (auto &pmb : block_list) {
       if (pmb->InitMeshBlockUserData != nullptr) {
@@ -955,8 +814,13 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     fc.TakeUnion(Metadata::Face, Metadata::Edge, Metadata::Node);
     fc.TakeIntersection(Metadata::FillGhost);
     std::vector<std::string> noncc_names = GetVariableNames(fc);
+    // Remeshed variables that ordinary boundary communication does not touch
+    const auto remesh_only_names =
+        GetNonFillGhostRemeshedVariables(resolved_packages.get());
+    const bool remesh_only_noncc =
+        GetNonFillGhostRemeshedVariables(resolved_packages.get(), true).size() > 0;
 
-    if (noncc_names.size() > 0) {
+    if (noncc_names.size() > 0 || remesh_only_names.size() > 0) {
       // A block newly refined and prolongated may have neighbors which were
       // already refined to the new level.
       // If so, the prolongated versions of shared elements will not reflect
@@ -968,19 +832,37 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist,
                             newly_refined);
       SetGMGNeighbors();
-      BuildTagMapAndBoundaryBuffers();
-      std::string noncc = "mesh_internal_noncc";
-      for (auto &partition : GetDefaultBlockPartitions()) {
-        auto &md = mesh_data.Add("base", partition);
-        auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names);
+
+      if (remesh_only_names.size() > 0) {
+        // Remeshed variables that are not FillGhost need the same treatment, and also
+        // need their ghost zones filled on the new mesh. They get their own channel.
+        ResetCommunicationInfrastructure(this);
+        auto md_new = std::make_shared<MeshData<Real>>("base", block_list, this);
+        md_new->partition = 0;
+        AddToTagMap<BoundaryType::remesh_halo>(md_new);
+        tag_map.ResolveMap();
+        BuildRemeshHaloBuffers(md_new);
+        ExchangeCoalescedBufferInfo(this);
+        ExchangeBoundaryBuffers<BoundaryType::remesh_halo, BoundaryType::remesh_halo>(
+            md_new, md_new);
+        if (md_new->NumBlocks() > 0) ProlongateBounds<BoundaryType::remesh_halo>(md_new);
       }
 
-      CommunicateBoundaries(
-          noncc, noncc_names); // Called to make sure shared values are correct,
-                               // ghosts of non-cell centered vars may get some junk
+      BuildTagMapAndBoundaryBuffers();
+      if (noncc_names.size() > 0) {
+        std::string noncc = "mesh_internal_noncc";
+        for (auto &partition : GetDefaultBlockPartitions()) {
+          auto &md = mesh_data.Add("base", partition);
+          auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names);
+        }
+
+        CommunicateBoundaries(
+            noncc, noncc_names); // Called to make sure shared values are correct,
+                                 // ghosts of non-cell centered vars may get some junk
+      }
       // Now there is the correct data for prolongating on un-shared topological elements
       // on the new fine blocks
-      if (nprolong > 0) {
+      if (nprolong > 0 && (noncc_names.size() > 0 || remesh_only_noncc)) {
         refinement::ProlongateInternal(resolved_packages.get(), prolongation_cache,
                                        block_list[0]->cellbounds,
                                        block_list[0]->c_cellbounds);
@@ -993,7 +875,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     SetGMGNeighbors();
     // Ownership does not impact anything about the buffers, so we don't need to
     // rebuild them if they were built above
-    if (noncc_names.size() == 0) BuildTagMapAndBoundaryBuffers();
+    if (noncc_names.size() == 0 && remesh_only_names.size() == 0)
+      BuildTagMapAndBoundaryBuffers();
 
     // Call to fill ghosts with real data and fill derived quantities
     PreCommFillDerived();
@@ -1002,7 +885,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Initialize the "base" MeshData object
     mesh_data.Add("base", GetBasePartition());
-  } // AMR Recv and unpack data
+  } // AMR finalize new mesh
 
   ResetLoadBalanceVariables();
 }
