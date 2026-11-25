@@ -23,6 +23,8 @@ list(APPEND unit_tests_SOURCES
     test_loop_abstraction.cpp
     test_concepts_lite.cpp
     test_coordinates.cpp
+    test_interpolation.cpp
+    test_update.cpp
     test_data_collection.cpp
     test_taskid.cpp
     test_tasklist.cpp
