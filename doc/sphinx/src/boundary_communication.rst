@@ -651,11 +651,19 @@ prolongation, etc. can proceed normally.
 
 Some notes:
 
-- Internally ``CoalescedComms`` contains maps from MPI rank and ``BoundaryType`` (e.g. regular
-  communication, flux correction) to ``CoalescedBuffersRank`` objects for sending and receiving
-  rank pairs. These ``CoalescedBuffersRank`` objects in turn contain maps from ``MeshData``
-  partition id of the sending ``MeshData`` (which also doubles as the MPI tag for the messages) 
-  to ``CoalescedBuffer`` objects). 
+- Internally ``CoalescedComms`` contains maps from MPI rank, ``BoundaryType`` (e.g. regular
+  communication, flux correction), and comm lane (see ``MeshData::SetCommLane`` and
+  ``Mesh::SetNumberOfCommLanes``) to ``CoalescedBuffersRank`` objects for sending and
+  receiving rank pairs. Each comm lane gets its own independent set of coalesced buffers,
+  so ``MeshData`` objects using different comm lanes can communicate concurrently. All lanes
+  of a ``BoundaryType`` share an MPI communicator and are distinguished by MPI tag.
+- These ``CoalescedBuffersRank`` objects in turn contain maps from the partition tag of the
+  sending ``MeshData`` (which is combined with the comm lane to make the MPI tag for the
+  messages) to ``CoalescedBuffer`` objects. Each ``BlockListPartition`` registered for
+  coalesced communication (the default and multigrid partitions) is assigned a tag that is
+  unique on the sending rank, and receiving ranks learn these tags from the buffer info
+  messages. A registered partition that shares no boundaries with a given rank simply sends
+  nothing to that rank.
 - ``CoalescedBuffersRank`` is where the post-remesh initialization routines are actually
   implemented. This can either correspond to the send or receive side.
 - ``CoalescedBuffer`` corresponds to each coalesced buffer and is where 
@@ -675,4 +683,7 @@ Some notes:
   the receiving end does not *a priori* know the size of the coalesced messages it is going to
   receive, we first check the size of the incoming MPI message, reallocate the coalesced receive
   buffer if necessary, and then actually post the `Irecv`. FWIW, this prevents pre-posting
-  the `Irecv`. 
+  the `Irecv`.
+
+.. note::
+    This file was made in part with generative AI. 
