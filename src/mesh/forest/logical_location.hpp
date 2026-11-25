@@ -35,6 +35,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/hash.hpp"
 #include "utils/morton_number.hpp"
 
 namespace parthenon {
@@ -181,10 +182,11 @@ inline bool operator!=(const LogicalLocation &lhs, const LogicalLocation &rhs) {
 template <>
 struct std::hash<parthenon::LogicalLocation> {
   std::size_t operator()(const parthenon::LogicalLocation &key) const noexcept {
-    // TODO(LFR): Think more carefully about what the best choice for this key is,
-    // probably the least significant sizeof(size_t) * 8 bits of the morton number
-    // with 3 * (level - 21) trailing bits removed.
-    return key.morton().bits[0];
+    // Morton numbers are relative to a tree and a block shares its Morton number with
+    // its first daughter, so the tree and level have to be part of the hash
+    const auto &bits = key.morton().bits;
+    return parthenon::impl::hash_combine(key.tree(), key.level(), bits[0], bits[1],
+                                         bits[2]);
   }
 };
 
