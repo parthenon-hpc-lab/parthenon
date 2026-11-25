@@ -12,5 +12,6 @@ so you can run your first example quickly.
    ../tutorial
    ../building
    ../inputs
+   ../rummy_input
    ../outputs
    ../signals
