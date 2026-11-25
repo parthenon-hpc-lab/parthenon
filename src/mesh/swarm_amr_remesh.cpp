@@ -40,12 +40,16 @@ namespace parthenon {
 
 namespace {
 
-// Each old MeshBlock produces one local send plan. The payload buffer is contiguous and
-// rank-partitioned so it can be concatenated into one rank-partitioned send buffer later.
+// Each old MeshBlock produces one rank-partitioned routing plan. The final byte payload
+// is packed directly into the peer send buffer after all block counts are known.
 struct BlockSendPlan {
-  ParArray1D<char> buffer;
+  std::shared_ptr<Swarm> swarm;
+  ParArray1D<int> source_indices;
+  ParArray1D<int> destination_gids;
   std::vector<int> send_counts;
   std::vector<int> send_offsets;
+  int record_size{0};
+  int total_particles{0};
 };
 
 // Remesh communication is sparse: only ranks that actually exchange remeshed particles
@@ -161,16 +165,18 @@ namespace {
 // The AMR bookkeeping already tells us the topological successor of each old block:
 // same-level block, parent block after derefinement, or first daughter after
 // refinement. Only the refinement case needs particle-by-particle routing. Everything is
-// packed into one contiguous byte buffer so the remesh exchange can stay as one compact
-// MPI_BYTE payload per peer rank.
+// recorded in compact device arrays so it can later be packed directly into the final
+// MPI_BYTE payload for each peer rank.
 BlockSendPlan
 BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
                    const SwarmRemeshContext &context, const int old_gid,
                    const std::unordered_map<LogicalLocation, int> &new_gid_by_loc,
                    const std::vector<remesh::ParticleRoute> *cached_routes) {
   const int nranks = Globals::nranks;
-  BlockSendPlan plan{ParArray1D<char>(), std::vector<int>(nranks, 0),
-                     std::vector<int>(nranks, 0)};
+  BlockSendPlan plan;
+  plan.swarm = swarm;
+  plan.send_counts.resize(nranks, 0);
+  plan.send_offsets.resize(nranks, 0);
 
   // A swarm may exist on this block but currently contain no active particles. In that
   // case there is nothing to communicate and the empty plan is returned immediately.
@@ -180,6 +186,7 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
   // This format stores one leading destination gid followed by the full swarm record for
   // that particle in byte form.
   const int record_size = sizeof(int) + swarm->GetRecordSize();
+  plan.record_size = record_size;
 
   // The remesh exchange is rank-partitioned. For this one old block we first collect
   // "which source particle goes to which destination gid on which rank" and only later
@@ -266,16 +273,13 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
   }
 
   if (total_particles == 0) return plan;
+  plan.total_particles = total_particles;
 
-  // Allocate the packed byte payload plus compact device arrays that map packed-record
-  // index -> original particle index / destination gid. Those two arrays let the device
-  // kernel pack records without consulting host-side STL containers.
-  plan.buffer =
-      ParArray1D<char>("swarm_amr_remesh_block_send", total_particles * record_size);
-  ParArray1D<int> source_indices("swarm_amr_remesh_source_indices", total_particles);
-  ParArray1D<int> dest_gids("swarm_amr_remesh_dest_gids", total_particles);
-  auto source_indices_h = source_indices.GetHostMirror();
-  auto dest_gids_h = dest_gids.GetHostMirror();
+  plan.source_indices =
+      ParArray1D<int>("swarm_amr_remesh_source_indices", total_particles);
+  plan.destination_gids = ParArray1D<int>("swarm_amr_remesh_dest_gids", total_particles);
+  auto source_indices_h = plan.source_indices.GetHostMirror();
+  auto dest_gids_h = plan.destination_gids.GetHostMirror();
 
   // Flatten the per-rank STL vectors into contiguous arrays. The order chosen here is the
   // order used later by send_offsets, so each rank already occupies one contiguous byte
@@ -287,30 +291,49 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
       dest_gids_h(offset) = dest_gids_by_rank[rank][i];
     }
   }
-  source_indices.DeepCopy(source_indices_h);
-  dest_gids.DeepCopy(dest_gids_h);
+  plan.source_indices.DeepCopy(source_indices_h);
+  plan.destination_gids.DeepCopy(dest_gids_h);
+
+  return plan;
+}
+
+void PackBlockSendPlan(const BlockSendPlan &plan, const ParArray1D<char> &buffer,
+                       const std::vector<int> &destination_offsets) {
+  if (plan.total_particles == 0) return;
+  ParArray1D<int> target_offsets("swarm_amr_remesh_target_offsets", plan.total_particles);
+  auto target_offsets_h = target_offsets.GetHostMirror();
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    const int first = plan.send_offsets[rank] / plan.record_size;
+    const int count = plan.send_counts[rank] / plan.record_size;
+    for (int n = 0; n < count; ++n) {
+      target_offsets_h(first + n) = destination_offsets[rank] + n * plan.record_size;
+    }
+  }
+  target_offsets.DeepCopy(target_offsets_h);
 
   // Swarm variables are stored as separate typed arrays. PackVariables gives flat typed
   // accessors into those arrays, including all components of vector/tensor particle
   // variables, so one kernel can serialize the full particle record.
   PackIndexMap real_imap, int_imap, uint64_imap;
   const auto vreal =
-      swarm->PackVariables<Real>(swarm->GetVariableNames<Real>(), real_imap);
-  const auto vint = swarm->PackVariables<int>(swarm->GetVariableNames<int>(), int_imap);
-  const auto vuint64 = swarm->PackVariables<std::uint64_t>(
-      swarm->GetVariableNames<std::uint64_t>(), uint64_imap);
+      plan.swarm->PackVariables<Real>(plan.swarm->GetVariableNames<Real>(), real_imap);
+  const auto vint =
+      plan.swarm->PackVariables<int>(plan.swarm->GetVariableNames<int>(), int_imap);
+  const auto vuint64 = plan.swarm->PackVariables<std::uint64_t>(
+      plan.swarm->GetVariableNames<std::uint64_t>(), uint64_imap);
   const int real_pack_dim = vreal.GetDim(2);
   const int int_pack_dim = vint.GetDim(2);
   const int uint64_pack_dim = vuint64.GetDim(2);
 
-  auto buffer = plan.buffer;
+  auto source_indices = plan.source_indices;
+  auto dest_gids = plan.destination_gids;
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, total_particles - 1,
-      KOKKOS_LAMBDA(const int n) {
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+      plan.total_particles - 1, KOKKOS_LAMBDA(const int n) {
         // n indexes packed records, not swarm particle ids directly. source_indices maps
         // back to the source particle chosen on host above.
         const int src_idx = source_indices(n);
-        int buffer_idx = n * record_size;
+        int buffer_idx = target_offsets(n);
 
         // The packed record layout is:
         //   [destination gid][all Real vars][all int vars][all uint64 vars]
@@ -328,8 +351,6 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
           byte_utils::PackValue(buffer, buffer_idx, vuint64(i, src_idx));
         }
       });
-
-  return plan;
 }
 
 //----------------------------------------------------------------------------------------
@@ -556,7 +577,7 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
       }
       auto plan =
           BuildBlockSendPlan(swarm, pmesh, context, on, new_gid_by_loc, cached_routes);
-      if (plan.buffer.size() == 0) continue;
+      if (plan.total_particles == 0) continue;
 
       for (int rank = 0; rank < nranks; ++rank) {
         send_counts[rank] += plan.send_counts[rank];
@@ -564,8 +585,6 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
       block_plans.emplace_back(std::move(plan));
     }
 
-    // Each old block produced its own packed payload for clarity. MPI wants one payload
-    // per rank, so concatenate those block-local payloads into one byte stream here.
     const int send_total = BuildOffsets(send_counts, send_offsets);
 
     ParArray1D<char> send_buffer;
@@ -573,19 +592,9 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
       send_buffer = ParArray1D<char>("swarm_amr_remesh_send", send_total);
       auto next_offsets = send_offsets;
       for (const auto &plan : block_plans) {
+        PackBlockSendPlan(plan, send_buffer, next_offsets);
         for (int rank = 0; rank < nranks; ++rank) {
-          // plan.send_offsets/counts already describe byte ranges for this rank inside
-          // the block-local payload. Copy those byte ranges into the final rank-global
-          // send buffer without unpacking/repacking anything.
           const int count = plan.send_counts[rank];
-          if (count == 0) continue;
-          const int src_begin = plan.send_offsets[rank];
-          const int dst_begin = next_offsets[rank];
-          auto src = Kokkos::subview(plan.buffer.KokkosView(),
-                                     std::make_pair(src_begin, src_begin + count));
-          auto dst = Kokkos::subview(send_buffer.KokkosView(),
-                                     std::make_pair(dst_begin, dst_begin + count));
-          Kokkos::deep_copy(dst, src);
           next_offsets[rank] += count;
         }
       }

@@ -103,6 +103,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       do_coalesced_comms{pin->GetOrAddBoolean(
           "parthenon/mesh", "do_coalesced_comms", false,
           "Use coalesced MPI messages for inter-block communication")},
+      remesh_max_payload_count{pin->GetOrAddInteger(
+          "parthenon/mesh", "remesh_max_payload_count", 16 * 1024 * 1024,
+          "Maximum number of Real values staged in one remesh transfer wave")},
       nbuf_add_{pin->GetOrAddInteger(
           "parthenon/mesh", "comm_buffer_chunk_size", -1,
           "Number of comm buffers to allocate when more are required. Default is a "
@@ -117,6 +120,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
                                "How many times to internally coarsen blocks before going "
                                "to two-level composite grids")} {
+  PARTHENON_REQUIRE(remesh_max_payload_count > 0,
+                    "remesh_max_payload_count must be positive");
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =

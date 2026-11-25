@@ -25,6 +25,8 @@ struct StorageLayout {
   std::array<int, MAX_VARIABLE_DIMENSION> coarse_dims{};
   std::uint64_t data_bytes{0};
   std::uint64_t coarse_bytes{0};
+  std::uint64_t interior_count{0};
+  std::array<std::uint64_t, 8> restricted_counts{};
 };
 
 struct FieldSchema {
