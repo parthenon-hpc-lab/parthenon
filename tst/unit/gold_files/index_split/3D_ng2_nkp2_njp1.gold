@@ -1,0 +1,6 @@
+# IndexSplit Gold File: 3D_ng2_nkp2_njp1
+# Config: ndim=3 nx=4,4,4 nghost=2 nkp=2 njp=1
+# Domain bounds: k=[2,5] j=[2,5] i=[2,5]
+outer_size=2
+p=0 k=[2,3] j=[2,5] i=[2,5] inner=[2,29] inner_size=28
+p=1 k=[4,5] j=[2,5] i=[2,5] inner=[2,29] inner_size=28
