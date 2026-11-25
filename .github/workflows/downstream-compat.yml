@@ -31,3 +31,9 @@ jobs:
       riot_ref: main
       # Tests the synthetic merge of develop + PR.
       parthenon_ref: ${{ github.ref }}
+  kharma:
+    name: KHARMA compatibility
+    uses: parthenon-hpc-lab/kharma/.github/workflows/regression-cpu.yml@dev
+    with:
+      kharma_ref: dev
+      parthenon_ref: ${{ github.ref }}
