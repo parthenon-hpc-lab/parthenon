@@ -12,6 +12,10 @@ TopologyPlan PlanTopology(const forest::Forest &active,
                           const std::vector<int> &old_owners, int ndim,
                           std::uint64_t old_epoch = 0);
 
+TopologyPlan PlanMigrationTopology(const forest::Forest &active,
+                                   const std::vector<int> &old_owners,
+                                   std::uint64_t old_epoch = 0);
+
 } // namespace parthenon::remesh
 
 #endif // MESH_REMESH_TOPOLOGY_HPP_
