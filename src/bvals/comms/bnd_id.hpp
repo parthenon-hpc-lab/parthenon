@@ -16,6 +16,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #ifndef BVALS_COMMS_BND_ID_HPP_
 #define BVALS_COMMS_BND_ID_HPP_
 
@@ -64,10 +66,10 @@ struct BndId {
   int &rank_recv() { return data[6]; }
   BoundaryType bound_type;
 
-  // MeshData partition id of the *sender*
+  // Coalesced comms tag of the *sender's* partition (unique per sending rank)
   // not set by constructors and only necessary for coalesced comms
   KOKKOS_FORCEINLINE_FUNCTION
-  int &partition() { return data[7]; }
+  int &partition_tag() { return data[7]; }
   KOKKOS_FORCEINLINE_FUNCTION
   int &size() { return data[8]; }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -108,7 +110,7 @@ struct BndId {
 
   static BndId GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                        std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
-                       int partition, int start_idx);
+                       int partition_tag, int start_idx, int lane);
 };
 } // namespace parthenon
 

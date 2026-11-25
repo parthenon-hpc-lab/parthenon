@@ -16,6 +16,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cstddef>
 #include <iostream> // debug
@@ -118,15 +120,15 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 
     // Build send buffer (unless this is a receiving flux boundary)
     if constexpr (IsSender(BTYPE)) {
-      pmesh->LockCommChannelNumbers(BTYPE);
-      const auto channel_count = pmesh->GetNumberOfCommChannels(BTYPE);
-      PARTHENON_REQUIRE(channel_count <=
+      pmesh->LockCommLaneNumbers(BTYPE);
+      const auto lane_count = pmesh->GetNumberOfCommLanes(BTYPE);
+      PARTHENON_REQUIRE(lane_count <=
                             static_cast<std::size_t>(std::numeric_limits<int>::max()),
-                        "Communication channel count exceeds the int channel-ID range.");
-      const int num_channels = static_cast<int>(channel_count);
-      for (int id = 0; id < num_channels; ++id) {
-        auto s_key = SendKey(pmb, nb, v, BTYPE, id);
-        const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
+                        "Communication lane count exceeds the int lane-ID range.");
+      const int num_lanes = static_cast<int>(lane_count);
+      for (int lane = 0; lane < num_lanes; ++lane) {
+        auto s_key = SendKey(pmb, nb, v, BTYPE, lane);
+        const int tag = pmesh->tag_map.GetTag(pmb, nb, lane);
         if (buf_map.count(s_key) == 0)
           buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
               tag, sender_rank, receiver_rank, comm, get_resource_method,
@@ -137,15 +139,15 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Also build the non-local receive buffers here
     if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
-        pmesh->LockCommChannelNumbers(BTYPE);
-        const auto channel_count = pmesh->GetNumberOfCommChannels(BTYPE);
-        PARTHENON_REQUIRE(
-            channel_count <= static_cast<std::size_t>(std::numeric_limits<int>::max()),
-            "Communication channel count exceeds the int channel-ID range.");
-        const int num_channels = static_cast<int>(channel_count);
-        for (int id = 0; id < num_channels; ++id) {
-          auto r_key = ReceiveKey(pmb, nb, v, BTYPE, id);
-          const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
+        pmesh->LockCommLaneNumbers(BTYPE);
+        const auto lane_count = pmesh->GetNumberOfCommLanes(BTYPE);
+        PARTHENON_REQUIRE(lane_count <=
+                              static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                          "Communication lane count exceeds the int lane-ID range.");
+        const int num_lanes = static_cast<int>(lane_count);
+        for (int lane = 0; lane < num_lanes; ++lane) {
+          auto r_key = ReceiveKey(pmb, nb, v, BTYPE, lane);
+          const int tag = pmesh->tag_map.GetTag(pmb, nb, lane);
           if (buf_map.count(r_key) == 0)
             buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
                 tag, receiver_rank, sender_rank, comm, get_resource_method,
@@ -159,16 +161,29 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 template <BoundaryType BTYPE>
 void RegisterCoalescedCommsSubset(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
+  // Register the partition even if it has no off-rank neighbors, so that coalesced
+  // communication on it is a no-op rather than an error
+  if constexpr (IsSender(BTYPE)) {
+    PARTHENON_REQUIRE(
+        md->partition != nullptr,
+        "Coalesced comms require MeshData built from a BlockListPartition.");
+    pmesh->pcoalesced_comms->RegisterPartition(md->partition.get());
+  }
+  pmesh->LockCommLaneNumbers(BTYPE);
+  const int nlanes = pmesh->GetNumberOfCommLanes(BTYPE);
   ForEachBoundary<BTYPE>(
       md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb, const sp_cv_t v) {
         const int receiver_rank = nb.rank;
         const int sender_rank = Globals::my_rank;
         if (receiver_rank != sender_rank) {
-          if constexpr (IsSender(BTYPE)) {
-            pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
-          }
-          if constexpr (IsReceiver(BTYPE)) {
-            pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
+          for (int lane = 0; lane < nlanes; ++lane) {
+            if constexpr (IsSender(BTYPE)) {
+              pmesh->pcoalesced_comms->AddSendBuffer(md->partition.get(), pmb, nb, v,
+                                                     BTYPE, lane);
+            }
+            if constexpr (IsReceiver(BTYPE)) {
+              pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE, lane);
+            }
           }
         }
       });
