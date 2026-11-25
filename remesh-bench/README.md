@@ -23,6 +23,21 @@ Benchmark-only tooling, on the benchmark branch `lroberts36/remesh-bvals-merge-b
   progress thread can pin itself to the sibling hyperthread.
 - Results: `results-rocinante-<jobid>/results.csv` plus per-run `out.log`.
 
+## remesh-tasks comparison on Rocinante
+Compares develop (at the merge base, e28dd5720), lanes (`faster-coalesced-comms`, 4653525c4)
+and `lroberts36/remesh-tasks`, all unpatched. Timing comes from space-time-stack regions:
+`st_remesh` (RedistributeAndRefineMeshBlocks, summed over `st_n_remesh` calls), `st_umbt`
+(UpdateMeshBlockTree, which absorbs rank skew left by the remesh), `st_lb` (the whole
+LoadBalancingAndAdaptiveMeshRefinement), and `st_total`, all averaged over ranks.
+
+    git pull && rocinante/setup_tasks.sh     # after setup.sh; re-run to pick up new commits
+    sbatch -A xd -p standard -N 1 -t 0:30:00 rocinante/bench.sbatch --machine rocinante-tasks \
+      --only b32 --ranks 8 --reps 1                                            # smoke
+    sbatch -A xd -p standard -N 1 -t 2:00:00 rocinante/bench.sbatch --machine rocinante-tasks \
+      --ranks 8 56 112
+    sbatch -A xd -p standard -N 8 -t 1:30:00 rocinante/bench.sbatch --machine rocinante-tasks \
+      --ranks 224 448 896
+
 ## Layout
 - `src-develop/`, `src-pr/`, `src-merge/` – git worktrees (merge base `c348b850a`, PR head
   `d1a0ed773`, this branch), with timers inserted by `apply_patch.py` (uncommitted; `git

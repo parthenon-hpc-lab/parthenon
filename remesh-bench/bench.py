@@ -51,6 +51,12 @@ VARIANTS = {
     "merge_pt": (HERE / "build-merge", {}, {"PARTHENON_MPI_PROGRESS_US": "10", **MT}),
     # ... with Cray MPICH's own progress thread instead
     "merge_ap": (HERE / "build-merge", {}, {"MPICH_ASYNC_PROGRESS": "1", **MT}),
+    # Unpatched builds from rocinante/setup_tasks.sh, timed with space-time-stack regions:
+    # develop at the merge base of the remesh-tasks branch, faster-coalesced-comms (lanes),
+    # and lroberts36/remesh-tasks (remesh as a bvals task list)
+    "dev": (HERE / "build-dev", {}, {}),
+    "lanes": (HERE / "build-lanes", {}, {}),
+    "tasks": (HERE / "build-tasks", {}, {}),
 }
 EXE = "example/advection/advection-example"
 STACK_LIB = HERE / ("kt-install/lib/libkp_space_time_stack."
@@ -113,6 +119,9 @@ MACHINES = {
                       mpi_args=["-c", "2", "--cpu-bind=cores", "--kill-on-bad-exit=1"],
                       variants=["develop", "pr_rw", "merge", "merge_pt"], timeout=900.0),
 }
+# The remesh-tasks comparison: same matrix, unpatched builds, always with space-time-stack
+MACHINES["rocinante-tasks"] = dict(MACHINES["rocinante"], variants=["dev", "lanes", "tasks"],
+                                   stack=True)
 # Span groups in the REMESH_TIMING line (see bench_remesh_timer.hpp). Group times are sums
 # of per-span max-over-ranks.
 GROUPS = {"xfer": ("d_", "p_"), "fin": ("f_",)}
@@ -203,6 +212,38 @@ def parse_log(text):
     return events, (float(zc[-1]) if zc else None), (float(wall[-1]) if wall else None)
 
 
+STACK_RX = re.compile(r"^([| ]*)\|-> (\S+) sec \S+ \S+ \S+ \S+ \S+ (\d+) "
+                      r"[^ ]*::\d+::(\w+) \[region\]$", re.M)
+
+
+def parse_stack(text):
+    """Region times from the space-time-stack top-down tree (averages over ranks):
+    LoadBalancingAndAdaptiveMeshRefinement, and its direct children
+    RedistributeAndRefineMeshBlocks (the remesh) and UpdateMeshBlockTree. Matched by name
+    and nesting, since line numbers differ between builds."""
+    if "TOTAL TIME" not in text or "BOTTOM-UP" not in text:
+        return {}
+    tree = text[text.index("TOTAL TIME"):text.index("BOTTOM-UP")]
+    row = {"st_lb": 0.0, "st_remesh": 0.0, "st_n_remesh": 0, "st_umbt": 0.0}
+    lb_indent = None
+    for m in STACK_RX.finditer(tree):
+        indent, t, calls, name = len(m.group(1)), float(m.group(2)), int(m.group(3)), m.group(4)
+        if name == "LoadBalancingAndAdaptiveMeshRefinement":
+            row["st_lb"] += t
+            lb_indent = indent
+        elif lb_indent is not None and indent == lb_indent + 4:
+            if name == "RedistributeAndRefineMeshBlocks":
+                row["st_remesh"] += t
+                row["st_n_remesh"] += calls
+            elif name == "UpdateMeshBlockTree":
+                row["st_umbt"] += t
+        elif lb_indent is not None and indent <= lb_indent:
+            lb_indent = None
+    total = re.search(r"TOTAL TIME: (\S+)", text)
+    row["st_total"] = float(total.group(1)) if total else None
+    return row
+
+
 def span_names(events):
     skip = {"event", "nb_old", "nb_new", "n_move", "n_ref", "n_deref", "n_xrank", "barrier"}
     return [k for k in events[0] if k not in skip and not k.startswith(("msgs_", "bytes_"))]
@@ -247,8 +288,10 @@ def main():
     ap.add_argument("--ranks", nargs="*", type=int, default=None,
                     help="restrict to these rank counts")
     ap.add_argument("--variants", nargs="*", default=None, choices=VARIANTS,
-                    help="default per machine; develop is always run first as the "
-                    "reference")
+                    help="default per machine; the reference is always run first")
+    ap.add_argument("--reference", default=None, choices=VARIANTS,
+                    help="variant whose history the others are compared to (default: the "
+                    "first variant)")
     ap.add_argument("--num-vars", nargs="*", type=int, default=None,
                     help="restrict to these Advection/num_vars")
     ap.add_argument("--coalesced", nargs="*", type=int, default=None, choices=[0, 1],
@@ -283,7 +326,8 @@ def main():
     cases = [(s, r, *rest) for (s, r), *rest in
              itertools.product(pairs, coalesced, num_vars, m["vec_size"], m["nlim"],
                                range(args.reps))]
-    variants = ["develop"] + [v for v in args.variants or m["variants"] if v != "develop"]
+    ref = args.reference or (args.variants or m["variants"])[0]
+    variants = [ref] + [v for v in args.variants or m["variants"] if v != ref]
     missing = [v for v in variants if not (VARIANTS[v][0] / EXE).exists()]
     print(f"{len(cases)} cases x {len(variants)} variants ({' '.join(variants)}), "
           + ("" if srun else f"mem limit {args.mem_limit_gb} GB, ")
@@ -300,7 +344,7 @@ def main():
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ)
-    if args.stack:
+    if args.stack or m.get("stack"):
         env["KOKKOS_TOOLS_LIBS"] = str(STACK_LIB)
     if args.barrier:
         env["BENCH_BARRIER"] = "1"
@@ -340,24 +384,30 @@ def main():
                        elapsed_s=round(elapsed, 2), walltime_s=wall,
                        zone_cycles_per_s=zc,
                        hst_identical=int(hst[branch] is not None
-                                         and hst[branch] == hst.get("develop")),
-                       **summarize(events))
+                                         and hst[branch] == hst.get(ref)),
+                       **summarize(events), **parse_stack((rundir / "out.log").read_text()))
             rows.append(row)
             nan = float("nan")
-            print(f"{case:38s} {branch:9s} {status:11s} ev={row['n_events']:3d} "
-                  f"total={row.get('med_total', nan):.2e} "
-                  f"xfer={row.get('med_xfer', nan):.2e} fin={row.get('med_fin', nan):.2e} "
-                  f"msgs={row.get('sum_msgs_xfer', 0):6d} "
-                  f"MB={row.get('sum_bytes_xfer', 0) / 2**20:7.1f} "
-                  f"peak={peak_mb:6.0f}MB wall={wall} zc/s={zc}", flush=True)
+            if "st_total" in row:
+                print(f"{case:38s} {branch:9s} {status:11s} "
+                      f"remesh={row['st_remesh']:.3f}s/{row['st_n_remesh']} "
+                      f"lb={row['st_lb']:.3f} umbt={row['st_umbt']:.3f} "
+                      f"total={row['st_total']} wall={wall} zc/s={zc}", flush=True)
+            else:
+                print(f"{case:38s} {branch:9s} {status:11s} ev={row['n_events']:3d} "
+                      f"total={row.get('med_total', nan):.2e} "
+                      f"xfer={row.get('med_xfer', nan):.2e} fin={row.get('med_fin', nan):.2e} "
+                      f"msgs={row.get('sum_msgs_xfer', 0):6d} "
+                      f"MB={row.get('sum_bytes_xfer', 0) / 2**20:7.1f} "
+                      f"peak={peak_mb:6.0f}MB wall={wall} zc/s={zc}", flush=True)
             if status != "ok":
                 print(f"  !! {status}: see {rundir / 'out.log'}")
                 if status == "killed_mem" and not args.keep_going:
                     sys.exit("stopping sweep after memory kill (use --keep-going)")
                 break
-        differ = [b for b in hst if hst[b] is None or hst[b] != hst.get("develop")]
+        differ = [b for b in hst if hst[b] is None or hst[b] != hst.get(ref)]
         if differ:
-            print(f"  !! history differs from develop for {case}: {' '.join(differ)}")
+            print(f"  !! history differs from {ref} for {case}: {' '.join(differ)}")
 
     keys = list(dict.fromkeys(k for r in rows for k in r))
     with open(outdir / "results.csv", "w", newline="") as f:
