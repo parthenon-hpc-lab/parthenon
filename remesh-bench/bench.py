@@ -70,6 +70,21 @@ def cube(nx, nb, levels=2):
             "parthenon/mesh/numlevel": levels}
 
 
+def lattice(n1, n2, n3):
+    """Weak scaling: n1 x n2 x n3 copies of b32's 128^3 unit, each with its own hard sphere
+    (needs sphere_lattice.patch). Every unit refines identically, peaking at 512 blocks."""
+    n = (n1, n2, n3)
+    return {**{f"parthenon/mesh/nx{d + 1}": 128 * n[d] for d in range(3)},
+            **{f"parthenon/mesh/x{d + 1}max": n[d] - 0.5 for d in range(3)},
+            **{f"parthenon/meshblock/nx{d}": 32 for d in (1, 2, 3)},
+            "parthenon/mesh/numlevel": 2, "Advection/sphere_period": 1.0}
+
+
+# Units per rank count in the weak-scaling matrix: 4 ranks per unit, so about 90 blocks
+# per rank on average and 128 at peak (about 2 GB per rank with num_vars=4)
+WEAK = {4: (1, 1, 1), 28: (7, 1, 1), 112: (7, 2, 2), 224: (7, 4, 2), 448: (7, 4, 4),
+        896: (7, 8, 4)}
+
 # Problem shapes: name -> input overrides. b8/b16 are kept small on purpose for the Mac.
 # Block counts are the peak over a 100-cycle run; larger meshes are extrapolated (root
 # blocks scale with volume, refined ones with the sphere's surface).
@@ -90,6 +105,7 @@ SHAPES = {
     "b32l": cube(512, 32),  # ~10000 blocks
     "b64": cube(256, 64),  # ~420 blocks
     "b64m": cube(512, 64),  # ~2000 blocks
+    **{"w" + "".join(map(str, n)): lattice(*n) for n in WEAK.values()},
 }
 # On the Mac, Open MPI's btl/sm default eager limit (4 KiB) makes fragment free lists grow
 # without bound under many outstanding small messages (see README); 32 KiB keeps memory
@@ -122,6 +138,10 @@ MACHINES = {
 # The remesh-tasks comparison: same matrix, unpatched builds, always with space-time-stack
 MACHINES["rocinante-tasks"] = dict(MACHINES["rocinante"], variants=["dev", "lanes", "tasks"],
                                    stack=True)
+# Weak scaling for the remesh-tasks comparison: about 100 blocks per rank at every scale
+MACHINES["rocinante-weak"] = dict(
+    MACHINES["rocinante-tasks"],
+    pairs=[("w" + "".join(map(str, n)), r) for r, n in WEAK.items()])
 # Span groups in the REMESH_TIMING line (see bench_remesh_timer.hpp). Group times are sums
 # of per-span max-over-ranks.
 GROUPS = {"xfer": ("d_", "p_"), "fin": ("f_",)}

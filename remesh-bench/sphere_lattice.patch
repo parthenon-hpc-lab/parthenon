@@ -1,0 +1,39 @@
+diff --git a/example/advection/parthenon_app_inputs.cpp b/example/advection/parthenon_app_inputs.cpp
+index 3a8e918c1..57ce3f044 100644
+--- a/example/advection/parthenon_app_inputs.cpp
++++ b/example/advection/parthenon_app_inputs.cpp
+@@ -12,6 +12,7 @@
+ //========================================================================================
+ 
+ #include <algorithm>
++#include <cmath>
+ #include <cstdio>
+ #include <memory>
+ #include <sstream>
+@@ -54,6 +55,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+   const auto &sin_a2 = pkg->Param<Real>("sin_a2");
+   const auto &sin_a3 = pkg->Param<Real>("sin_a3");
+   const auto &profile = pkg->Param<std::string>("profile");
++  // Benchmark only: with a period > 0, hard spheres sit on a periodic lattice (distance
++  // to the nearest lattice point), so tiling the domain gives weak scaling
++  const Real period = pin->GetOrAddReal("Advection", "sphere_period", 0.0);
+ 
+   auto cellbounds = pmb->cellbounds;
+   IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
+@@ -91,9 +95,13 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+                      coords.Xc<3>(k) * coords.Xc<3>(k);
+           q(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
+         } else if (profile_type == 2) {
+-          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+-                     coords.Xc<2>(j) * coords.Xc<2>(j) +
+-                     coords.Xc<3>(k) * coords.Xc<3>(k);
++          Real x = coords.Xc<1>(i), y = coords.Xc<2>(j), z = coords.Xc<3>(k);
++          if (period > 0) {
++            x -= period * std::round(x / period);
++            y -= period * std::round(y / period);
++            z -= period * std::round(z / period);
++          }
++          Real rsq = x * x + y * y + z * z;
+           q(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+         } else {
+           q(n, k, j, i) = 0.0;

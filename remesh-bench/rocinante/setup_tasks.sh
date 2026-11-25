@@ -5,8 +5,9 @@
 #   JOBS=64 srun -A xd -p standard -N 1 -n 1 --exclusive -t 1:00:00 \
 #     rocinante/setup_tasks.sh --no-fetch     # compute node: builds
 # (with no argument it does both, for machines where compute nodes reach GitHub).
-# Creates unpatched worktrees src-{dev,lanes,tasks} and builds build-{dev,lanes,tasks};
-# timing comes from space-time-stack regions, not the benchmark timer patch. Re-running
+# Creates worktrees src-{dev,lanes,tasks} and builds build-{dev,lanes,tasks}; the only
+# patch is sphere_lattice.patch (advection example), and timing comes from
+# space-time-stack regions, not the benchmark timer patch. Re-running
 # moves src-tasks to the latest lroberts36/remesh-tasks and rebuilds.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -43,8 +44,11 @@ for v in dev lanes tasks; do
     rmdir "$src/external/Kokkos"
     ln -s "$REPO/external/Kokkos" "$src/external/Kokkos"
   else
+    git -C "$src" checkout -q -- example/advection/parthenon_app_inputs.cpp
     git -C "$src" checkout -q --detach "$(ref_of $v)"
   fi
+  # Sphere lattice for the weak-scaling shapes (inert unless Advection/sphere_period > 0)
+  git -C "$src" apply "$BENCH/sphere_lattice.patch"
   echo "== src-$v: $(git -C "$src" log --oneline -1)"
   [ "$MODE" = --fetch-only ] && continue
   if [ ! -f "build-$v/CMakeCache.txt" ]; then

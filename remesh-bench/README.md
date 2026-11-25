@@ -41,6 +41,19 @@ LoadBalancingAndAdaptiveMeshRefinement), and `st_total`, all averaged over ranks
     sbatch -A xd -p standard -N 8 -t 1:30:00 rocinante/bench.sbatch --machine rocinante-tasks \
       --ranks 224 448 896
 
+Weak scaling (`--machine rocinante-weak`): shapes `w<n1><n2><n3>` tile b32's 128^3 unit
+(one hard sphere, peak 512 blocks) n1 x n2 x n3 times, using `sphere_lattice.patch`
+(applied to all three worktrees by `setup_tasks.sh`; `Advection/sphere_period=1` puts a
+sphere at every integer point). 4 ranks per unit: about 90 blocks per rank on average and
+128 at peak, about 2 GB per rank with num_vars=4. On the Mac, 2 and 4 units gave exactly
+2x and 4x the blocks at every cycle, and one unit is bitwise identical to the unpatched
+profile. `sacct.txt` in the results directory has each run's peak per-rank RSS.
+
+    sbatch -A xd -p standard -N 1 -t 0:30:00 rocinante/bench.sbatch --machine rocinante-weak \
+      --only w722 --num-vars 4 --reps 1                                       # memory smoke
+    sbatch -A xd -p standard -N 1 -t 3:00:00 rocinante/bench.sbatch --machine rocinante-weak
+    sbatch -A xd -p standard -N 8 -t 3:00:00 rocinante/bench.sbatch --machine rocinante-weak
+
 ## Layout
 - `src-develop/`, `src-pr/`, `src-merge/` – git worktrees (merge base `c348b850a`, PR head
   `d1a0ed773`, this branch), with timers inserted by `apply_patch.py` (uncommitted; `git

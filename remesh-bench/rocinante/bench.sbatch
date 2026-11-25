@@ -21,4 +21,7 @@ srun -N 1 -n 4 -c 2 --cpu-bind=cores \
 
 python3 bench.py --machine rocinante --reps 2 --keep-going \
   --outdir "results-rocinante-${SLURM_JOB_ID}" "$@"
+# Peak RSS of the busiest rank in each run (the RSS watchdog cannot see srun ranks)
+sacct -j "${SLURM_JOB_ID}" -P --format=JobID,JobName%40,NTasks,MaxRSS,MaxRSSNode,Elapsed \
+  > "results-rocinante-${SLURM_JOB_ID}/sacct.txt" || true
 echo "== $(date) done"
