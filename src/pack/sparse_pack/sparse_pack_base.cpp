@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <regex>
@@ -243,6 +244,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
             Variable<Real> *pvf = nullptr;
             if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
               std::string flux_name = pv->metadata().GetFluxName();
+              PARTHENON_DEBUG_REQUIRE(!flux_name.empty(),
+                                      "Variable marked WithFluxes has no flux name.");
               pvf = &pmbd->Get(flux_name);
             }
             for (int t = 0; t < pv->GetDim(6); ++t) {

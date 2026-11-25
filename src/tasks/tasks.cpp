@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <regex>
 #include <string>
@@ -191,6 +192,9 @@ void TaskRegion::AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {
 void TaskRegion::AddRegionalDependencies(const std::vector<TaskList *> &tls) {
   const auto num_lists = tls.size();
   const auto num_regional = tls.front()->NumRegional();
+  PARTHENON_REQUIRE(num_regional <=
+                        static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                    "Regional task count exceeds the int index range.");
   const int regional_count = static_cast<int>(num_regional);
   std::vector<Task *> tasks(num_lists);
   for (int i = 0; i < regional_count; i++) {

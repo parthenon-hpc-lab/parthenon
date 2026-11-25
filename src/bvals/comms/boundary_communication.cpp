@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <iostream> // debug
+#include <limits>
 #include <memory>
 #include <random>
 #include <string>
@@ -114,7 +115,8 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
-
+  PARTHENON_REQUIRE(nbound <= std::numeric_limits<int>::max() / nteams_per_buffer,
+                    "Boundary team count exceeds the int league-index range.");
   const std::size_t num_flags = static_cast<std::size_t>(nbound) * nteams_per_buffer;
   if (sending_nonzero_flags.size() != num_flags) {
     sending_nonzero_flags = ParArray1D<bool>("sending_nonzero_flags", num_flags);
