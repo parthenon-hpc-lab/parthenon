@@ -31,10 +31,11 @@ SourceContribution MakeSource(const forest::Forest &active,
   PARTHENON_REQUIRE(gid >= 0 && static_cast<std::size_t>(gid) < old_owners.size(),
                     "Remesh source GID has no owner");
   SourceContribution contribution{{old_epoch, gid}, {source}, old_owners[gid], {}};
-  if (destination.level() > source.level()) {
-    contribution.child.value = {static_cast<int>(destination.lx1() & 1),
-                                static_cast<int>(destination.lx2() & 1),
-                                static_cast<int>(destination.lx3() & 1)};
+  if (destination.level() != source.level()) {
+    const auto &child = destination.level() > source.level() ? destination : source;
+    contribution.child.value = {static_cast<int>(child.lx1() & 1),
+                                static_cast<int>(child.lx2() & 1),
+                                static_cast<int>(child.lx3() & 1)};
   }
   return contribution;
 }

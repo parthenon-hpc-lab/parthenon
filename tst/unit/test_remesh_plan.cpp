@@ -1,3 +1,4 @@
+#include <limits>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -5,6 +6,8 @@
 #include "mesh/forest/forest.hpp"
 #include "mesh/remesh/placement.hpp"
 #include "mesh/remesh/topology.hpp"
+#include "mesh/remesh/transfer.hpp"
+#include "utils/peer_transport.hpp"
 
 using parthenon::AmrTag;
 using parthenon::LogicalLocation;
@@ -53,6 +56,8 @@ TEST_CASE("Topology plans preserve direct provenance", "[remesh]") {
     REQUIRE(leaf.sources.size() == 1);
     REQUIRE(leaf.sources[0].source.epoch == 7);
     REQUIRE(leaf.sources[0].source.gid == 0);
+    REQUIRE(leaf.sources[0].child.value[0] == (leaf.key.loc.lx1() & 1));
+    REQUIRE(leaf.sources[0].child.value[1] == (leaf.key.loc.lx2() & 1));
   }
 
   auto refined = std::move(*refine_plan.candidate);
@@ -68,6 +73,10 @@ TEST_CASE("Topology plans preserve direct provenance", "[remesh]") {
   REQUIRE(derefine_plan.leaves.size() == 1);
   REQUIRE(derefine_plan.leaves[0].relation == Relation::coarsened_parent);
   REQUIRE(derefine_plan.leaves[0].sources.size() == 4);
+  for (const auto &source : derefine_plan.leaves[0].sources) {
+    REQUIRE(source.child.value[0] == (source.source_key.loc.lx1() & 1));
+    REQUIRE(source.child.value[1] == (source.source_key.loc.lx2() & 1));
+  }
 }
 
 TEST_CASE("Incomplete sibling permission does not derefine", "[remesh]") {
@@ -166,4 +175,78 @@ TEST_CASE("Remesh peak budget includes live sources", "[remesh][budget]") {
   budget.device_bytes = 15;
   REQUIRE_THROWS(PlanRemeshPlacement(topology, inventory, {1.0}, {5}, 1,
                                      CostPolicy::inherit, budget));
+}
+
+TEST_CASE("Field transfer manifests are deterministic and explicit",
+          "[remesh][transfer]") {
+  using namespace parthenon::remesh;
+  TopologyPlan topology;
+  topology.changed = true;
+  topology.successors.resize(2);
+  topology.leaves = {{{}, 0, {}, Relation::unchanged, {{{3, 0}, {}, 0, {}}}},
+                     {{},
+                      1,
+                      {},
+                      Relation::coarsened_parent,
+                      {{{3, 0}, {}, 0, {{0, 0, 0}}}, {{3, 1}, {}, 1, {{1, 0, 0}}}}}};
+
+  InventoryPlan inventory;
+  StorageLayout layout;
+  layout.data_bytes = 8 * sizeof(parthenon::Real);
+  layout.coarse_bytes = 4 * sizeof(parthenon::Real);
+  inventory.field_schema.push_back({parthenon::VarID("field"),
+                                    parthenon::Metadata({parthenon::Metadata::Cell}),
+                                    layout, true, "field"});
+  inventory.blocks.resize(2);
+  inventory.blocks[0].fields.push_back({0,
+                                        true,
+                                        true,
+                                        false,
+                                        layout.data_bytes,
+                                        layout.coarse_bytes,
+                                        {2, 7, true},
+                                        {{0, true, {2, 7, true}}}});
+  inventory.blocks[1].fields.push_back(
+      {0,
+       true,
+       true,
+       false,
+       layout.data_bytes,
+       layout.coarse_bytes,
+       {},
+       {{0, true, {2, 7, true}}, {1, false, {0, 4, true}}}});
+
+  OwnershipMap ownership;
+  ownership.owner = {1, 1};
+  const auto plan = PlanFieldTransfers(topology, inventory, {0, 1}, ownership);
+  REQUIRE(plan.batches.size() == 2);
+  REQUIRE(plan.batches[0].source_rank == 0);
+  REQUIRE(plan.batches[0].destination_rank == 1);
+  REQUIRE(plan.batches[0].records.size() == 2);
+  REQUIRE(plan.batches[0].records[0].operation == RemeshOperation::copy);
+  REQUIRE(plan.batches[0].records[0].payload_count == 8);
+  REQUIRE(plan.batches[0].records[0].source_counters.deallocation_count == 7);
+  REQUIRE(plan.batches[0].records[1].operation == RemeshOperation::fine_to_coarse);
+  REQUIRE(plan.batches[0].records[1].payload_offset == 8);
+  REQUIRE(plan.batches[0].records[1].payload_count == 4);
+  REQUIRE(plan.batches[1].source_rank == 1);
+  REQUIRE(plan.batches[1].destination_rank == 1);
+  REQUIRE_FALSE(plan.batches[1].records[0].source_allocated);
+  REQUIRE(plan.batches[1].payload_count == 0);
+
+  const auto uncoalesced =
+      PlanFieldTransfers(topology, inventory, {0, 1}, ownership, false);
+  REQUIRE(uncoalesced.batches.size() == 3);
+  for (const auto &batch : uncoalesced.batches) {
+    REQUIRE(batch.records.size() == 1);
+    REQUIRE(batch.records.front().payload_offset == 0);
+    REQUIRE(batch.payload_count == batch.records.front().payload_count);
+  }
+}
+
+TEST_CASE("Peer transport validates MPI count limits", "[remesh][transfer]") {
+  using parthenon::peer_transport::CheckedMpiCount;
+  REQUIRE(CheckedMpiCount(17) == 17);
+  REQUIRE_THROWS(
+      CheckedMpiCount(static_cast<std::uint64_t>(std::numeric_limits<int>::max()) + 1));
 }

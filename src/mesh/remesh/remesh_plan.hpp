@@ -74,6 +74,12 @@ struct CounterPolicy {
   bool inherited{false};
 };
 
+struct SourceFieldState {
+  std::int64_t source_gid;
+  bool allocated;
+  CounterPolicy counters;
+};
+
 struct PlannedField {
   FieldSchemaId field;
   bool allocated_after_transfer{false};
@@ -82,6 +88,7 @@ struct PlannedField {
   std::uint64_t data_bytes{0};
   std::uint64_t coarse_bytes{0};
   CounterPolicy counters;
+  std::vector<SourceFieldState> sources;
 };
 
 struct PlannedSwarm {
@@ -164,6 +171,33 @@ struct PlacementPlan {
   std::vector<RankMemoryFootprint> host_memory;
   std::vector<RankMemoryFootprint> device_memory;
   bool hard_memory_guarantee{false};
+};
+
+enum class RemeshOperation { copy, coarse_to_fine, fine_to_coarse };
+
+struct FieldTransferRecord {
+  std::int64_t source_gid;
+  std::int64_t destination_gid;
+  int source_rank;
+  int destination_rank;
+  FieldSchemaId field;
+  RemeshOperation operation;
+  ChildOffsets child;
+  bool source_allocated;
+  CounterPolicy source_counters;
+  std::uint64_t payload_offset;
+  std::uint64_t payload_count;
+};
+
+struct PeerTransferBatch {
+  int source_rank;
+  int destination_rank;
+  std::vector<FieldTransferRecord> records;
+  std::uint64_t payload_count{0};
+};
+
+struct FieldTransferPlan {
+  std::vector<PeerTransferBatch> batches;
 };
 
 struct TaggedLeaf {

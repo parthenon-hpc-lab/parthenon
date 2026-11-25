@@ -224,6 +224,8 @@ add_library(parthenon
   mesh/remesh/topology.cpp
   mesh/remesh/placement.hpp
   mesh/remesh/placement.cpp
+  mesh/remesh/transfer.hpp
+  mesh/remesh/transfer.cpp
   mesh/mesh-amr_loadbalance.cpp
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp
@@ -349,6 +351,7 @@ add_library(parthenon
   utils/mpi_types.hpp
   utils/multi_pointer.hpp
   utils/object_pool.hpp
+  utils/peer_transport.hpp
   utils/partition_stl_containers.hpp
   utils/reductions.hpp
   utils/robust.hpp

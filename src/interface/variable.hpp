@@ -141,11 +141,19 @@ class Variable {
 
   int dealloc_count = 0;
 
-  int com_state[2];
+  int com_state[4];
 
   int GetAllocationStatus() {
     if (!is_allocated_) return 0;
     return num_alloc_;
+  }
+
+  void RestoreAllocationStatusForRemesh(const int allocation_count) {
+    PARTHENON_REQUIRE(allocation_count >= 0,
+                      "Remesh allocation count must be nonnegative");
+    PARTHENON_REQUIRE((allocation_count > 0) == IsAllocated(),
+                      "Remesh allocation count disagrees with allocation state");
+    num_alloc_ = allocation_count;
   }
 
   std::vector<TopologicalElement> GetTopologicalElements() const {

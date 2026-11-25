@@ -30,6 +30,7 @@
 #include "globals.hpp"
 #include "parthenon_mpi.hpp"
 #include "utils/mpi_types.hpp"
+#include "utils/peer_transport.hpp"
 
 namespace parthenon {
 
@@ -259,8 +260,10 @@ void CommBuffer<T>::Send(bool local, int size) noexcept {
     if (size < 0) size = buf_.size();
     PARTHENON_REQUIRE(size <= buf_.size(), "Asking to send too much");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), size, MPITypeMap<buf_base_t>::type(),
-                                  recv_rank_, tag_, comm_, my_request_.get()));
+    peer_transport::ValidateTag(comm_, tag_);
+    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), peer_transport::CheckedMpiCount(size),
+                                  MPITypeMap<buf_base_t>::type(), recv_rank_, tag_, comm_,
+                                  my_request_.get()));
 #endif
   }
   if (*comm_type_ == BuffCommType::receiver) {
@@ -279,6 +282,7 @@ void CommBuffer<T>::SendNull(bool local) noexcept {
 // this could be blocking
 #ifdef MPI_PARALLEL
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
+    peer_transport::ValidateTag(comm_, tag_);
     PARTHENON_MPI_CHECK(MPI_Isend(&null_buf_, 0, MPITypeMap<buf_base_t>::type(),
                                   recv_rank_, tag_, comm_, my_request_.get()));
 #endif
@@ -323,9 +327,10 @@ void CommBuffer<T>::TryStartReceive() noexcept {
         "Cannot have another pending request in a buffer that is starting to receive.");
     // For early start of Irecv, always need storage space even if not used
     if (!IsActive()) Allocate(-1);
-    PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
-                                  MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
-                                  my_request_.get()));
+    peer_transport::ValidateTag(comm_, tag_);
+    PARTHENON_MPI_CHECK(MPI_Irecv(
+        buf_.data(), peer_transport::CheckedMpiCount(buf_.size()),
+        MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_, my_request_.get()));
     *started_irecv_ = true;
   } else if (*comm_type_ == BuffCommType::sparse_receiver && !*started_irecv_) {
     int test;
@@ -339,11 +344,13 @@ void CommBuffer<T>::TryStartReceive() noexcept {
       PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
       if (size > 0) {
         if (!active_ || buf_.size() < size) Allocate(size);
-        PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
-                                      MPITypeMap<buf_base_t>::type(), send_rank_, tag_,
-                                      comm_, my_request_.get()));
+        peer_transport::ValidateTag(comm_, tag_);
+        PARTHENON_MPI_CHECK(MPI_Irecv(
+            buf_.data(), peer_transport::CheckedMpiCount(buf_.size()),
+            MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_, my_request_.get()));
       } else {
         if (active_) Free();
+        peer_transport::ValidateTag(comm_, tag_);
         PARTHENON_MPI_CHECK(MPI_Irecv(&null_buf_, 0, MPITypeMap<buf_base_t>::type(),
                                       send_rank_, tag_, comm_, my_request_.get()));
       }

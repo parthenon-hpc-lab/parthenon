@@ -242,7 +242,15 @@ InventoryPlan PlanInventory(const Mesh &mesh, const TopologyPlan &topology) {
                               false,
                               exists ? schema.layout.data_bytes : 0,
                               exists ? schema.layout.coarse_bytes : 0,
+                              {},
                               {}});
+      for (const auto &source : leaf.sources) {
+        const auto offset = source.source.gid * field_count + field;
+        block.fields.back().sources.push_back(
+            {source.source.gid,
+             static_cast<bool>(allocated[offset]),
+             {alloc_count[offset], dealloc_count[offset], true}});
+      }
       if (leaf.relation == Relation::unchanged && leaf.sources.size() == 1) {
         const auto offset = leaf.sources.front().source.gid * field_count + field;
         block.fields.back().counters = {alloc_count[offset], dealloc_count[offset], true};
@@ -263,6 +271,11 @@ InventoryPlan PlanInventory(const Mesh &mesh, const TopologyPlan &topology) {
         const auto &layout = plan.field_schema[field.field].layout;
         field.data_bytes = layout.data_bytes;
         field.coarse_bytes = layout.coarse_bytes;
+      }
+      if (leaf.relation == Relation::unchanged && leaf.sources.size() == 1) {
+        const auto offset = leaf.sources.front().source.gid * field_count + field.field;
+        field.counters.inherited =
+            static_cast<bool>(allocated[offset]) == field.allocated_after_transfer;
       }
       block.footprint.device_owned = CheckedAdd(
           block.footprint.device_owned, CheckedAdd(field.data_bytes, field.coarse_bytes));
