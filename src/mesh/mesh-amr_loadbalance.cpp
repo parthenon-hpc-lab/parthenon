@@ -25,8 +25,10 @@
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <numeric>
 #include <sstream>
 #include <string>
@@ -45,14 +47,84 @@
 #include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/remesh/placement.hpp"
 #include "mesh/remesh/inventory.hpp"
+#include "mesh/remesh/placement.hpp"
 #include "mesh/remesh/topology.hpp"
 #include "mesh/swarm_amr_remesh.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+namespace {
+
+remesh::CostPolicy GetRemeshCostPolicy(ParameterInput *pin) {
+  const auto policy =
+      pin->GetOrAddString("parthenon/loadbalancing", "remesh_cost_policy", "inherit",
+                          std::vector<std::string>{"inherit", "parthenon", "application"},
+                          "cost model used to place blocks after remeshing");
+  if (policy == "parthenon") return remesh::CostPolicy::parthenon;
+  if (policy == "application") return remesh::CostPolicy::application;
+  return remesh::CostPolicy::inherit;
+}
+
+std::optional<std::uint64_t> ReadMemoryBudget(ParameterInput *pin,
+                                              const std::string &name) {
+  if (!pin->DoesParameterExist("parthenon/loadbalancing", name)) return std::nullopt;
+  const auto mib = pin->GetReal("parthenon/loadbalancing", name);
+  PARTHENON_REQUIRE(mib > 0.0 && std::isfinite(mib),
+                    "Remesh memory budgets must be finite and positive");
+  constexpr double bytes_per_mib = 1024.0 * 1024.0;
+  PARTHENON_REQUIRE(mib <=
+                        static_cast<double>(std::numeric_limits<std::uint64_t>::max()) /
+                            bytes_per_mib,
+                    "Remesh memory budget exceeds uint64_t");
+  return static_cast<std::uint64_t>(mib * bytes_per_mib);
+}
+
+remesh::MemoryBudget GetRemeshMemoryBudget(ParameterInput *pin) {
+  remesh::MemoryBudget budget;
+  budget.host_bytes = ReadMemoryBudget(pin, "remesh_host_memory_budget_mib");
+  budget.device_bytes = ReadMemoryBudget(pin, "remesh_device_memory_budget_mib");
+  budget.require_hard_guarantee = pin->GetOrAddBoolean(
+      "parthenon/loadbalancing", "remesh_require_hard_memory_guarantee", false,
+      "reject remesh unless all prospective storage has a conservative bound");
+  return budget;
+}
+
+std::vector<std::uint64_t> GatherSourceMemory(const Mesh &mesh) {
+  std::vector<std::uint64_t> source_bytes(Globals::nranks, 0);
+  for (const auto &block : mesh.block_list) {
+    PARTHENON_REQUIRE(source_bytes[Globals::my_rank] <=
+                          std::numeric_limits<std::uint64_t>::max() -
+                              block->ReportMemUsage(),
+                      "Source mesh memory accounting exceeds uint64_t");
+    source_bytes[Globals::my_rank] += block->ReportMemUsage();
+  }
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, source_bytes.data(), Globals::nranks,
+                                    MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD));
+#endif
+  return source_bytes;
+}
+
+void ValidateCostsCollectively(const std::vector<double> &costs) {
+#ifdef MPI_PARALLEL
+  auto minimum = costs;
+  auto maximum = costs;
+  PARTHENON_REQUIRE(costs.size() <= std::numeric_limits<int>::max(),
+                    "Remesh cost count exceeds MPI limits");
+  const auto count = static_cast<int>(costs.size());
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, minimum.data(), count, MPI_DOUBLE,
+                                    MPI_MIN, MPI_COMM_WORLD));
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, maximum.data(), count, MPI_DOUBLE,
+                                    MPI_MAX, MPI_COMM_WORLD));
+  PARTHENON_REQUIRE(minimum == maximum,
+                    "Remesh cost callback returned rank-dependent results");
+#endif
+}
+
+} // namespace
 
 #ifdef MPI_PARALLEL
 //----------------------------------------------------------------------------------------
@@ -322,14 +394,12 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
   PARTHENON_INSTRUMENT
   remesh::TopologyPlan topology;
   remesh::InventoryPlan inventory;
+  remesh::PlacementPlan placement;
 
   if (adaptive) {
     topology = PlanAdaptiveMeshTopology();
-    nbnew += topology.added_blocks;
-    nbdel += topology.removed_blocks;
     if (topology.changed) {
       inventory = remesh::PlanInventory(*this, topology);
-      forest = std::move(*topology.candidate);
     }
   }
 
@@ -340,9 +410,17 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
   modified = false;
   if (topology.changed) {
     GatherCostListAndCheckBalance();
+    placement = remesh::PlanRemeshPlacement(
+        topology, inventory, costlist, GatherSourceMemory(*this), Globals::nranks,
+        GetRemeshCostPolicy(pin), GetRemeshMemoryBudget(pin),
+        app_in == nullptr ? nullptr : app_in->EstimateRemeshBlockCost);
+    ValidateCostsCollectively(placement.costs);
+    nbnew += topology.added_blocks;
+    nbdel += topology.removed_blocks;
+    forest = std::move(*topology.candidate);
     ExecuteLegacyRemeshPlan(pin, app_in,
                             nbtotal + topology.added_blocks - topology.removed_blocks,
-                            &topology, &inventory);
+                            &topology, &inventory, &placement);
     modified = true;
   } else if (lb_flag_ && step_since_lb >= lb_interval_) {
     if (!GatherCostListAndCheckBalance()) { // load imbalance detected
@@ -560,7 +638,8 @@ bool Mesh::GatherCostListAndCheckBalance() {
 
 void Mesh::ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in,
                                    int ntot, const remesh::TopologyPlan *topology,
-                                   const remesh::InventoryPlan *inventory) {
+                                   const remesh::InventoryPlan *inventory,
+                                   const remesh::PlacementPlan *placement) {
   PARTHENON_INSTRUMENT
   // kill all old MeshData
   mesh_data.clear();
@@ -619,6 +698,11 @@ void Mesh::ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in
         oldtonew[mb_idx] = ntot - 1;
     }
 
+    if (placement != nullptr) {
+      PARTHENON_REQUIRE(placement->costs.size() == newcost.size(),
+                        "Planned remesh costs have the wrong size");
+      newcost = placement->costs;
+    }
     current_level = 0;
     for (int n = 0; n < ntot; n++) {
       // "on" = "old n" = "old gid" = "old global MeshBlock ID"
@@ -626,22 +710,30 @@ void Mesh::ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in
       if (newloc[n].level() > current_level) // set the current max level
         current_level = newloc[n].level();
       if (newloc[n].level() >= loclist[on].level()) { // same or refined
-        newcost[n] = costlist[on];
+        if (placement == nullptr) newcost[n] = costlist[on];
         // Keep a list of all blocks refined for below
         if (newloc[n].level() > loclist[on].level()) {
           newly_refined.insert(newloc[n]);
         }
       } else {
-        double acost = 0.0;
-        for (int l = 0; l < nleaf; l++)
-          acost += costlist[on + l];
-        newcost[n] = acost / nleaf;
+        if (placement == nullptr) {
+          double acost = 0.0;
+          for (int l = 0; l < nleaf; l++)
+            acost += costlist[on + l];
+          newcost[n] = acost / nleaf;
+        }
       }
     }
   } // Construct new list region
 
   // Calculate new load balance
-  CalculateLoadBalance(newcost, newrank, nslist, nblist);
+  if (placement == nullptr) {
+    CalculateLoadBalance(newcost, newrank, nslist, nblist);
+  } else {
+    newrank = placement->ownership.owner;
+    nslist = placement->ownership.rank_starts;
+    nblist = placement->ownership.rank_counts;
+  }
 
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
