@@ -63,6 +63,15 @@ done
 
 [ "$MODE" = --fetch-only ] && { echo "== fetched; now build on a compute node with --no-fetch"; exit 0; }
 [ -f kt-install/lib/libkp_space_time_stack.so ] \
-  || echo "!! Kokkos Tools missing: run rocinante/setup.sh first"
+  || { echo "!! Kokkos Tools missing: run rocinante/setup.sh first"; exit 1; }
+# Without MPI every rank prints its own space-time-stack tree into the same log and the
+# region times cannot be parsed; earlier setup.sh runs built Kokkos Tools without it
+if ! grep -q "^KokkosTools_ENABLE_MPI:BOOL=ON" kokkos-tools/build/CMakeCache.txt; then
+  echo "== rebuild Kokkos Tools with MPI"
+  cmake -S kokkos-tools -B kokkos-tools/build -DKokkosTools_ENABLE_MPI=ON \
+    > kt-config.log 2>&1 || { tail -30 kt-config.log; exit 1; }
+  cmake --build kokkos-tools/build -j "$JOBS" --target install > kt-build.log 2>&1 \
+    || { grep -m 20 -B2 -A5 "error" kt-build.log; exit 1; }
+fi
 echo "== done"
 ls -l build-{dev,lanes,tasks}/example/advection/advection-example

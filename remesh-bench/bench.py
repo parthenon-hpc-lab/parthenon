@@ -223,6 +223,9 @@ def parse_stack(text):
     and nesting, since line numbers differ between builds."""
     if "TOTAL TIME" not in text or "BOTTOM-UP" not in text:
         return {}
+    if text.count("TOTAL TIME") > 1:
+        # Kokkos Tools built without MPI: every rank prints a tree, interleaved
+        return {"st_error": "one space-time-stack tree per rank; rebuild with MPI"}
     tree = text[text.index("TOTAL TIME"):text.index("BOTTOM-UP")]
     row = {"st_lb": 0.0, "st_remesh": 0.0, "st_n_remesh": 0, "st_umbt": 0.0}
     lb_indent = None
@@ -388,7 +391,10 @@ def main():
                        **summarize(events), **parse_stack((rundir / "out.log").read_text()))
             rows.append(row)
             nan = float("nan")
-            if "st_total" in row:
+            if "st_error" in row:
+                print(f"{case:38s} {branch:9s} {status:11s} {row['st_error']} "
+                      f"wall={wall} zc/s={zc}", flush=True)
+            elif "st_total" in row:
                 print(f"{case:38s} {branch:9s} {status:11s} "
                       f"remesh={row['st_remesh']:.3f}s/{row['st_n_remesh']} "
                       f"lb={row['st_lb']:.3f} umbt={row['st_umbt']:.3f} "

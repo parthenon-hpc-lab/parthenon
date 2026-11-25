@@ -72,7 +72,7 @@ if [ ! -f kt-install/lib/libkp_space_time_stack.so ]; then
     kokkos-tools/profiling/space-time-stack/kp_space_time_stack.cpp
   cmake -S kokkos-tools -B kokkos-tools/build -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CXX_COMPILER=CC -DCMAKE_C_COMPILER=cc -DCMAKE_INSTALL_PREFIX="$BENCH/kt-install" \
-    -DCMAKE_INSTALL_LIBDIR=lib > kt-config.log 2>&1 || { tail -30 kt-config.log; exit 1; }
+    -DCMAKE_INSTALL_LIBDIR=lib -DKokkosTools_ENABLE_MPI=ON > kt-config.log 2>&1 || { tail -30 kt-config.log; exit 1; }
   cmake --build kokkos-tools/build -j "$JOBS" --target install > kt-build.log 2>&1 \
     || { grep -m 20 -B2 -A5 "error" kt-build.log; exit 1; }
 fi
