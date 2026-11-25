@@ -210,19 +210,14 @@ Mesh::SendRemeshCounters_(const BlockList_t &old_blocks, int onbs, int nbs, int 
     if (on < 0 || old_layout.Rank(on) == Globals::my_rank) continue;
     counters.recv_gids[old_layout.Rank(on)].push_back(nn);
   }
-  if (!counters.recv_gids.empty()) {
-    // Every block has the same remeshed variables
-    PARTHENON_REQUIRE(!old_blocks.empty(), "Expected at least one block on each rank.");
-    const int per_block = 1 + old_blocks[0]->vars_cc_.size();
-    for (auto &[rank, gids] : counters.recv_gids) {
-      auto &buf =
-          counters.recv
-              .emplace(rank, CommBuffer<std::vector<int>>(0, rank, Globals::my_rank, comm,
-                                                          get_resource))
-              .first->second;
-      buf.Allocate(gids.size() * per_block);
-      buf.TryStartReceive();
-    }
+  // Sparse receivers size their buffer from the message, since a rank without old blocks
+  // cannot know the number of counters per block
+  for (auto &[rank, gids] : counters.recv_gids) {
+    auto &buf = counters.recv
+                    .emplace(rank, CommBuffer<std::vector<int>>(
+                                       0, rank, Globals::my_rank, comm, get_resource, true))
+                    .first->second;
+    buf.TryStartReceive();
   }
 #endif
   return counters;
@@ -254,6 +249,7 @@ void Mesh::SetRemeshCounters_(const RemeshCounterBuffers_ &counters,
       for (const auto &label : SortedRemeshLabels(pmb->vars_cc_))
         pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count = data[idx++];
     }
+    PARTHENON_REQUIRE(idx == data.size(), "Unexpected number of remesh counters.");
   }
 }
 
