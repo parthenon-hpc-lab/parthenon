@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,8 +11,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <sstream>
@@ -29,6 +32,7 @@
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
+#include "pack/default_names.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -275,6 +279,83 @@ class SwarmProvider : public VariableProvider {
   std::shared_ptr<StateDescriptor> &state_;
 };
 
+class LukewarmProvider : public VariableProvider {
+ public:
+  LukewarmProvider(Packages_t &packages, std::shared_ptr<StateDescriptor> &sd)
+      : packages_(packages), state_(sd) {}
+  void AddPrivate(const std::string &package, const std::string &label,
+                  const Metadata &metadata) {
+    AddLukewarm_(packages_.Get(package).get(), label,
+                 package + internal_varname_seperator + label, metadata);
+  }
+  void AddProvides(const std::string &package, const std::string &label,
+                   const Metadata &metadata) {
+    AddLukewarm_(packages_.Get(package).get(), label, label, metadata);
+  }
+  void AddOverridable(const std::string &label, Metadata &metadata) {
+    // we don't know which package this lukewarm is coming from, so we need to search
+    for (auto &pair : packages_.AllPackages()) {
+      auto &package = pair.second;
+      if (package->LukewarmPresent(label)) {
+        AddLukewarm_(package.get(), label, label, metadata);
+        return;
+      }
+    }
+    PARTHENON_THROW("Couldn't find overridable lukewarm " + label);
+  }
+
+ private:
+  void AddLukewarm_(StateDescriptor *package, const std::string &lukewarm,
+                    const std::string &lukewarm_name, const Metadata &metadata) {
+    PARTHENON_REQUIRE_THROWS(state_->AddLukewarm(lukewarm_name, metadata),
+                             "Couldn't add lukewarm '" + lukewarm_name +
+                                 "' to resolved state");
+    // The default fields were just added by AddLukewarm, so they report false here
+    for (const auto &[field_name, field_meta] : package->AllLukewarmFields(lukewarm)) {
+      state_->AddLukewarmField(lukewarm_name, field_name, field_meta);
+    }
+  }
+
+  Packages_t &packages_;
+  std::shared_ptr<StateDescriptor> &state_;
+};
+
+bool StateDescriptor::AddLukewarm(const std::string &lukewarm_name,
+                                  const Metadata &m_in) {
+  PARTHENON_REQUIRE_THROWS(lukewarm_name.find_first_of("\n\t ") == std::string::npos,
+                           "A lukewarm name may not contain whitespace");
+  if (LukewarmPresent(lukewarm_name)) return false;
+  Metadata m = m_in; // so we can modify it
+  if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
+  lukewarmMetadataMap_[lukewarm_name] = m;
+  lukewarmFieldMetadataMap_[lukewarm_name] = {};
+
+  const Metadata m_real({Metadata::Real}), m_uint64({Metadata::UInt64});
+  AddLukewarmField<lukewarm::x>(lukewarm_name, m_real);
+  AddLukewarmField<lukewarm::y>(lukewarm_name, m_real);
+  AddLukewarmField<lukewarm::z>(lukewarm_name, m_real);
+  AddLukewarmField<lukewarm::id>(lukewarm_name, m_uint64);
+  return true;
+}
+
+bool StateDescriptor::AddLukewarmField(const std::string &lukewarm_name,
+                                       const std::string &field_name,
+                                       const Metadata &m_in) {
+  PARTHENON_REQUIRE_THROWS(LukewarmPresent(lukewarm_name),
+                           "Lukewarm " + lukewarm_name + " does not exist!");
+  if (LukewarmFieldPresent(lukewarm_name, field_name)) return false;
+  // Lukewarm fields are always Metadata::Particle
+  Metadata m = m_in; // so we can modify it
+  m.Set(Metadata::Particle);
+  if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
+  const auto type = m.Type();
+  PARTHENON_REQUIRE_THROWS(
+      type == Metadata::Real || type == Metadata::Integer || type == Metadata::UInt64,
+      "Lukewarm field " + field_name + " must be Real, Integer, or UInt64");
+  lukewarmFieldMetadataMap_.at(lukewarm_name)[field_name] = m;
+  return true;
+}
+
 bool StateDescriptor::AddSwarmValue(const std::string &value_name,
                                     const std::string &swarm_name, const Metadata &m) {
   // Swarm variables are always Metadata::Particle
@@ -382,6 +463,38 @@ std::vector<std::string> StateDescriptor::Swarms() noexcept {
   return names;
 }
 
+std::vector<std::string> StateDescriptor::Lukewarms() const noexcept {
+  std::vector<std::string> names;
+  names.reserve(lukewarmMetadataMap_.size());
+  for (const auto &pair : lukewarmMetadataMap_) {
+    names.push_back(pair.first);
+  }
+  return names;
+}
+
+const std::map<std::string, Metadata> &
+StateDescriptor::AllLukewarmFields(const std::string &lukewarm_name) const {
+  const auto itr = lukewarmFieldMetadataMap_.find(lukewarm_name);
+  PARTHENON_REQUIRE_THROWS(itr != lukewarmFieldMetadataMap_.end(),
+                           "AllLukewarmFields: Non-existent lukewarm: " + lukewarm_name);
+  return itr->second;
+}
+
+bool StateDescriptor::LukewarmFieldPresent(const std::string &lukewarm_name,
+                                           const std::string &field_name) const noexcept {
+  const auto itr = lukewarmFieldMetadataMap_.find(lukewarm_name);
+  if (itr == lukewarmFieldMetadataMap_.end()) return false;
+  return itr->second.count(field_name) > 0;
+}
+
+const Metadata &
+StateDescriptor::LukewarmMetadata(const std::string &lukewarm_name) const {
+  const auto itr = lukewarmMetadataMap_.find(lukewarm_name);
+  PARTHENON_REQUIRE_THROWS(itr != lukewarmMetadataMap_.end(),
+                           "LukewarmMetadata: Non-existent lukewarm: " + lukewarm_name);
+  return itr->second;
+}
+
 bool StateDescriptor::FlagsPresent(std::vector<MetadataFlag> const &flags,
                                    bool matchAny) {
   for (auto &pair : metadataMap_)
@@ -469,6 +582,16 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
       os << std::left << std::setw(25) << ("    \t" + val + " ") << metadata << "\n";
     }
   }
+  os << "# ---------------------------------------------------\n"
+     << "# Lukewarms:\n"
+     << "# Lukewarm\tField\tmetadata\n"
+     << "# ---------------------------------------------------\n";
+  for (const auto &[lukewarm, fields] : sd.lukewarmFieldMetadataMap_) {
+    os << lukewarm << "\n";
+    for (const auto &[field, metadata] : fields) {
+      os << std::left << std::setw(25) << ("    \t" + field + " ") << metadata << "\n";
+    }
+  }
   return os;
 }
 
@@ -509,9 +632,11 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   // are of what type.
   DependencyTracker field_tracker;
   DependencyTracker swarm_tracker;
+  DependencyTracker lukewarm_tracker;
   // closures that provide functions for DependencyTracker
   FieldProvider field_provider(packages, state);
   SwarmProvider swarm_provider(packages, state);
+  LukewarmProvider lukewarm_provider(packages, state);
 
   // Add private/provides variables. Check for conflicts among those.
   // Track dependent and overridable variables.
@@ -536,6 +661,8 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
     // sort
     field_tracker.CategorizeCollection(name, field_dict, &field_provider);
     swarm_tracker.CategorizeCollection(name, package->AllSwarms(), &swarm_provider);
+    lukewarm_tracker.CategorizeCollection(name, package->AllLukewarms(),
+                                          &lukewarm_provider);
 
     if (!package->AllSwarms().empty() && !std::is_same<Real, double>::value) {
       PARTHENON_WARN(
@@ -559,6 +686,7 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   // check that dependent variables are provided somewhere
   field_tracker.CheckRequires();
   swarm_tracker.CheckRequires();
+  lukewarm_tracker.CheckRequires();
 
   // Treat overridable vars:
   // If a var is overridable and provided, do nothing.
@@ -567,6 +695,7 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   // and optionally throw a warning.
   field_tracker.CheckOverridable(&field_provider);
   swarm_tracker.CheckOverridable(&swarm_provider);
+  lukewarm_tracker.CheckOverridable(&lukewarm_provider);
 
   state->InvertControllerMap();
 

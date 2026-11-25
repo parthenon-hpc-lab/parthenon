@@ -16,6 +16,7 @@
 //========================================================================================
 #ifndef OUTPUTS_PARTHENON_OPMD_HPP_
 #define OUTPUTS_PARTHENON_OPMD_HPP_
+// This file was made in part with generative AI.
 //! \file restart_opmd.hpp
 //  \brief Provides support for restarting from OpenPMD output
 
@@ -77,6 +78,13 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
 // the typical v,u,t indices.
 std::tuple<std::string, std::string>
 GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
+                                   const int flat_comp_idx);
+
+// Like GetParticleRecordAndComponentNames, but for a field of a lukewarm. Positions and
+// ids are named as the standard asks, and every other field keeps its name, so as for
+// swarm variables, a field whose name has a '.' cannot be written.
+std::tuple<std::string, std::string>
+GetLukewarmRecordAndComponentNames(const std::string &field, const int rank,
                                    const int flat_comp_idx);
 
 } // namespace OpenPMDUtils

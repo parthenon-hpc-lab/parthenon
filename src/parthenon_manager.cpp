@@ -25,6 +25,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -36,7 +37,12 @@
 #include "config.hpp"
 #include FS_HEADER
 #include "globals.hpp"
+#include "interface/mesh_data.hpp"
+#include "kokkos_abstraction.hpp"
+#include "lukewarm/lukewarm.hpp"
+#include "lukewarm/lukewarm_variable.hpp"
 #include "mesh/domain.hpp"
+#include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs_package.hpp"
@@ -286,6 +292,81 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
+namespace {
+// Read the T fields of a lukewarm for the particles of this rank, which are
+// [offset, offset + count) in the file, into the particles just appended to each
+// MeshData. For MeshData i, places[i] holds each new particle's place in the file,
+// relative to offset, blocks[i] its block, and first[i] is where the new particles start.
+template <typename T>
+void ReadLukewarmFields(RestartReader &resfile, const std::string &name,
+                        const std::vector<MeshData<Real> *> &mds,
+                        const std::vector<std::vector<std::size_t>> &places,
+                        const std::vector<std::vector<int>> &blocks,
+                        const std::vector<int> &first, const std::size_t count,
+                        const std::size_t offset) {
+  // Every MeshData's copy of a lukewarm has the same fields in the same rows
+  const auto &layout = mds[0]->GetLukewarm(name);
+  const int ncomp = layout.NumComponents<T>();
+  if (ncomp == 0) return;
+  const int nmds = mds.size();
+  std::vector<ParArray2DRaw<T>> fresh(nmds);
+  std::vector<typename ParArray2DRaw<T>::host_mirror_type> fresh_h(nmds);
+  for (int i = 0; i < nmds; ++i) {
+    fresh[i] = ParArray2DRaw<T>("restarted " + name, ncomp, places[i].size());
+    fresh_h[i] = Kokkos::create_mirror_view(fresh[i]);
+    Kokkos::deep_copy(fresh_h[i], T(0));
+  }
+  if constexpr (std::is_same_v<T, int>) {
+    for (int i = 0; i < nmds; ++i) {
+      for (std::size_t p = 0; p < places[i].size(); ++p) {
+        fresh_h[i](Lukewarm::block_row, p) = blocks[i][p];
+      }
+    }
+  }
+
+  std::vector<T> buffer;
+  for (const auto &var : layout.GetVariables<T>()) {
+    const auto &label = var->label();
+    const bool missing_on_disk =
+        !resfile.VariableExists(name, RestartReader::DataType::LukewarmField, label);
+    if (Globals::my_rank == 0) {
+      std::cout << "LukewarmField: " << label
+                << (missing_on_disk ? " missing on disk, so set to zero\n" : "\n");
+    }
+    if (missing_on_disk) continue;
+    try {
+      resfile.ReadLukewarmField(name, label, count, offset, var->metadata(), buffer);
+    } catch (std::exception &ex) {
+      // The field exists but could not be read
+      PARTHENON_THROW(StringPrintf("[%d] Failed to read field %s of lukewarm %s from "
+                                   "restart file:\n%s",
+                                   Globals::my_rank, label.c_str(), name.c_str(),
+                                   ex.what()));
+    }
+    // Each component is over every particle of this rank
+    for (int c = 0; c < var->NumComponents(); ++c) {
+      for (int i = 0; i < nmds; ++i) {
+        for (std::size_t p = 0; p < places[i].size(); ++p) {
+          fresh_h[i](var->GetOffset() + c, p) = buffer[c * count + places[i][p]];
+        }
+      }
+    }
+  }
+
+  for (int i = 0; i < nmds; ++i) {
+    const int n = places[i].size();
+    if (n == 0) continue;
+    Kokkos::deep_copy(fresh[i], fresh_h[i]);
+    auto data = mds[i]->GetLukewarm(name).GetData<T>();
+    auto from = fresh[i];
+    const int s = first[i];
+    par_for(
+        PARTHENON_AUTO_LABEL, 0, ncomp - 1, 0, n - 1,
+        KOKKOS_LAMBDA(const int c, const int p) { data(c, s + p) = from(c, p); });
+  }
+}
+} // namespace
+
 void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
@@ -442,6 +523,59 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
     ReadSwarmVars_<std::uint64_t>(swarm, rm.block_list, count_on_rank, offsets[0]);
     ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
+  }
+
+  // Lukewarm data
+  // ============================================================
+  // A lukewarm is written in the layout of swarms: each block's particles together, with
+  // blocks in gid order. Each block's particles go to the MeshData that owns the block.
+  const auto &lukewarms = rm.resolved_packages->AllLukewarms();
+  if (!lukewarms.empty()) {
+    rm.BuildLukewarms();
+    std::vector<MeshData<Real> *> mds;
+    std::vector<std::pair<int, int>> owner(nb); // MeshData and index there of each block
+    for (auto &partition : rm.GetDefaultBlockPartitions()) {
+      auto *md = rm.mesh_data.Add("base", partition).get();
+      for (int b = 0; b < md->NumBlocks(); ++b) {
+        owner[md->GetBlockData(b)->GetBlockPointer()->gid - nbs] = {
+            static_cast<int>(mds.size()), b};
+      }
+      mds.push_back(md);
+    }
+    for (const auto &[name, metadata] : lukewarms) {
+      const bool missing_on_disk =
+          !resfile.VariableExists(name, RestartReader::DataType::Lukewarm);
+      if (Globals::my_rank == 0) {
+        std::cout << "Lukewarm: " << name
+                  << (missing_on_disk ? " missing on disk\n" : "\n");
+      }
+      if (missing_on_disk) continue;
+      // New particles must not reuse the ids of any particle before the restart, even one
+      // since removed. Every MeshData's copy of a lukewarm on this rank shares its ids.
+      mds[0]->GetLukewarm(name).ReserveIdsBelow(resfile.GetLukewarmIdBound(name));
+
+      std::vector<std::size_t> counts, offsets;
+      const std::size_t count_on_rank =
+          resfile.GetSwarmCounts(name, myBlocks, counts, offsets);
+      if (OutputUtils::MPISum(count_on_rank) == 0) continue;
+      std::vector<std::vector<std::size_t>> places(mds.size());
+      std::vector<std::vector<int>> blocks(mds.size());
+      for (int g = 0; g < nb; ++g) {
+        const auto [i, b] = owner[g];
+        for (std::size_t p = 0; p < counts[g]; ++p) {
+          places[i].push_back(offsets[g] - offsets[0] + p);
+          blocks[i].push_back(b);
+        }
+      }
+      std::vector<int> first(mds.size());
+      for (std::size_t i = 0; i < mds.size(); ++i) {
+        first[i] = mds[i]->GetLukewarm(name).Append(places[i].size()).s;
+      }
+      LukewarmTypes::IterateTypes([&](auto t) {
+        ReadLukewarmFields<decltype(t)>(resfile, name, mds, places, blocks, first,
+                                        count_on_rank, offsets[0]);
+      });
+    }
   }
 
   // Params

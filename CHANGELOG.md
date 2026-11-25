@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1475]](https://github.com/parthenon-hpc-lab/parthenon/pull/1475) Add `Lukewarm`s
 
 
 ### Changed (changing behavior/API/variables/...)
