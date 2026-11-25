@@ -25,7 +25,7 @@
 // Parthenon includes
 #include <coordinates/coordinates.hpp>
 #include <kokkos_abstraction.hpp>
-#include <parthenon/package.hpp>
+#include <pack/sparse_pack/sparse_pack.hpp>
 #include <utils/error_checking.hpp>
 #include <utils/robust.hpp>
 
@@ -74,21 +74,21 @@ KOKKOS_INLINE_FUNCTION void GetWeights(const Real x, const int nx,
 }
 
 /*
- * Trilinear interpolation on a variable or meshblock pack
+ * Trilinear interpolation on a SparsePack
  * PARAM[IN] - b - Meshblock index
  * PARAM[IN] - X1, X2, X3 - Coordinate locations
- * PARAM[IN] - p - Variable or MeshBlockPack
+ * PARAM[IN] - p - SparsePack
  * PARAM[IN] - v - variable index
  */
-template <typename Pack>
+template <typename Pack, typename VariableIndex>
 KOKKOS_INLINE_FUNCTION Real Do3D(int b, const Real X1, const Real X2, const Real X3,
-                                 const Pack &p, int v) {
-  const auto &coords = p.GetCoords(b);
+                                 const Pack &p, VariableIndex v) {
+  const auto &coords = p.GetCoordinates(b);
   int ix[3];
   weights_t w[3];
-  GetWeights<X1DIR>(X1, p.GetDim(1), coords, ix[0], w[0]);
-  GetWeights<X2DIR>(X2, p.GetDim(2), coords, ix[1], w[1]);
-  GetWeights<X3DIR>(X3, p.GetDim(3), coords, ix[2], w[2]);
+  GetWeights<X1DIR>(X1, p(b, v).GetDim(1), coords, ix[0], w[0]);
+  GetWeights<X2DIR>(X2, p(b, v).GetDim(2), coords, ix[1], w[1]);
+  GetWeights<X3DIR>(X3, p(b, v).GetDim(3), coords, ix[2], w[2]);
   return (w[2][0] * (w[1][0] * (w[0][0] * p(b, v, ix[2], ix[1], ix[0]) +
                                 w[0][1] * p(b, v, ix[2], ix[1], ix[0] + 1)) +
                      w[1][1] * (w[0][0] * p(b, v, ix[2], ix[1] + 1, ix[0]) +
@@ -100,47 +100,47 @@ KOKKOS_INLINE_FUNCTION Real Do3D(int b, const Real X1, const Real X2, const Real
 }
 
 /*
- * Bilinear interpolation on a variable or meshblock pack
+ * Bilinear interpolation on a SparsePack
  * PARAM[IN] - b - Meshblock index
  * PARAM[IN] - X1, X2 - Coordinate locations
- * PARAM[IN] - p - Variable or MeshBlockPack
+ * PARAM[IN] - p - SparsePack
  * PARAM[IN] - v - variable index
  */
-template <typename Pack>
+template <typename Pack, typename VariableIndex>
 KOKKOS_INLINE_FUNCTION Real Do2D(int b, const Real X1, const Real X2, const Pack &p,
-                                 int v) {
-  const auto &coords = p.GetCoords(b);
+                                 VariableIndex v) {
+  const auto &coords = p.GetCoordinates(b);
   int ix1, ix2;
   weights_t w1, w2;
-  GetWeights<X1DIR>(X1, p.GetDim(1), coords, ix1, w1);
-  GetWeights<X2DIR>(X2, p.GetDim(2), coords, ix2, w2);
+  GetWeights<X1DIR>(X1, p(b, v).GetDim(1), coords, ix1, w1);
+  GetWeights<X2DIR>(X2, p(b, v).GetDim(2), coords, ix2, w2);
   return (w2[0] * (w1[0] * p(b, v, 0, ix2, ix1) + w1[1] * p(b, v, 0, ix2, ix1 + 1)) +
           w2[1] *
               (w1[0] * p(b, v, 0, ix2 + 1, ix1) + w1[1] * p(b, v, 0, ix2 + 1, ix1 + 1)));
 }
 
 /*
- * Linear interpolation on a variable or meshblock pack
+ * Linear interpolation on a SparsePack
  * PARAM[IN] - b - Meshblock index
  * PARAM[IN] - X1 - Coordinate location
- * PARAM[IN] - p - Variable or MeshBlockPack
+ * PARAM[IN] - p - SparsePack
  * PARAM[IN] - v - variable index
  */
-template <typename Pack>
-KOKKOS_INLINE_FUNCTION Real Do1D(int b, const Real X1, const Pack &p, int v) {
-  const auto &coords = p.GetCoords(b);
+template <typename Pack, typename VariableIndex>
+KOKKOS_INLINE_FUNCTION Real Do1D(int b, const Real X1, const Pack &p, VariableIndex v) {
+  const auto &coords = p.GetCoordinates(b);
   int ix;
   weights_t w;
-  GetWeights<X1DIR>(X1, p.GetDim(1), coords, ix, w);
+  GetWeights<X1DIR>(X1, p(b, v).GetDim(1), coords, ix, w);
   return w[0] * p(b, v, 0, 0, ix) + w[1] * p(b, v, 0, 0, ix + 1);
 }
 
 /*
- * Trilinear or bilinear interpolation on a variable or meshblock pack
+ * Trilinear or bilinear interpolation on a SparsePack
  * PARAM[IN] - axisymmetric
  * PARAM[IN] - b - Meshblock index
  * PARAM[IN] - X1, X2, X3 - Coordinate locations
- * PARAM[IN] - p - Variable or MeshBlockPack
+ * PARAM[IN] - p - SparsePack
  * PARAM[IN] - v - variable index
  */
 // JMM: I know this won't vectorize because of the switch, but it
@@ -148,12 +148,12 @@ KOKKOS_INLINE_FUNCTION Real Do1D(int b, const Real X1, const Pack &p, int v) {
 // interpolation, which will kill memory locality.  Doing it this
 // way means we can do trilinear vs bilinear which I think is a
 // sufficient win at minimum code bloat.
-template <typename Pack>
+template <typename Pack, typename VariableIndex>
 KOKKOS_INLINE_FUNCTION Real Do(int b, const Real X1, const Real X2, const Real X3,
-                               const Pack &p, int v) {
-  if (p.GetDim(3) > 1) {
+                               const Pack &p, VariableIndex v) {
+  if (p(b, v).GetDim(3) > 1) {
     return Do3D(b, X1, X2, X3, p, v);
-  } else if (p.GetDim(2) > 1) {
+  } else if (p(b, v).GetDim(2) > 1) {
     return Do2D(b, X1, X2, p, v);
   } else { // 1D
     return Do1D(b, X1, p, v);

@@ -20,6 +20,7 @@
 //  \brief implements donor cell reconstruction
 
 #include "kokkos_abstraction.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 
 using parthenon::ScratchPad2D;
 
@@ -74,6 +75,41 @@ DonorCellX3(parthenon::team_mbr_t const &member, const int k, const int j, const
                              [&](const int i) { ql(n, i) = qr(n, i) = q(n, k, j, i); });
   }
 }
+
+// SparsePack reconstruction uses the allocated component range on block b.
+template <typename... Ts>
+KOKKOS_FORCEINLINE_FUNCTION void
+DonorCellX1(parthenon::team_mbr_t const &member, const int b, const int k, const int j,
+            const int il, const int iu, const SparsePack<Ts...> &q,
+            ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
+  for (int n = q.GetLowerBound(b); n <= q.GetUpperBound(b); ++n) {
+    parthenon::par_for_inner(
+        member, il, iu, [&](const int i) { ql(n, i + 1) = qr(n, i) = q(b, n, k, j, i); });
+  }
+}
+
+template <typename... Ts>
+KOKKOS_FORCEINLINE_FUNCTION void
+DonorCellX2(parthenon::team_mbr_t const &member, const int b, const int k, const int j,
+            const int il, const int iu, const SparsePack<Ts...> &q,
+            ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
+  for (int n = q.GetLowerBound(b); n <= q.GetUpperBound(b); ++n) {
+    parthenon::par_for_inner(
+        member, il, iu, [&](const int i) { ql(n, i) = qr(n, i) = q(b, n, k, j, i); });
+  }
+}
+
+template <typename... Ts>
+KOKKOS_FORCEINLINE_FUNCTION void
+DonorCellX3(parthenon::team_mbr_t const &member, const int b, const int k, const int j,
+            const int il, const int iu, const SparsePack<Ts...> &q,
+            ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
+  for (int n = q.GetLowerBound(b); n <= q.GetUpperBound(b); ++n) {
+    parthenon::par_for_inner(
+        member, il, iu, [&](const int i) { ql(n, i) = qr(n, i) = q(b, n, k, j, i); });
+  }
+}
+
 } // namespace parthenon
 
 #endif // RECONSTRUCT_DC_INLINE_HPP_
