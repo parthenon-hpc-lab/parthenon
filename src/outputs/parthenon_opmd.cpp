@@ -19,6 +19,8 @@
 // This file was made in part with generative AI.
 
 #include <algorithm>
+#include <array>
+#include <cctype>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -308,6 +310,38 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
   CheckValidName(mesh_record_name);
   CheckValidName(comp_name);
   return {mesh_record_name, comp_name};
+}
+
+std::string GetFieldLabelFromMeshRecordName(const std::string &record_name,
+                                            const int format_version) {
+  PARTHENON_REQUIRE_THROWS(
+      format_version >= 2,
+      "Cannot recover logical field names from legacy OpenPMD format-version 1 "
+      "record names. Supply parthenon/analysis/fields explicitly.");
+
+  const auto level_pos = record_name.rfind("_lvl");
+  PARTHENON_REQUIRE_THROWS(
+      level_pos != std::string::npos && level_pos + 4 < record_name.size(),
+      "Invalid Parthenon OpenPMD mesh record name '" + record_name + "'.");
+  PARTHENON_REQUIRE_THROWS(
+      std::all_of(record_name.begin() + level_pos + 4, record_name.end(),
+                  [](const unsigned char c) { return std::isdigit(c); }),
+      "Invalid AMR level suffix in Parthenon OpenPMD mesh record name '" + record_name +
+          "'.");
+
+  auto field_name = record_name.substr(0, level_pos);
+  static constexpr std::array<const char *, 7> topological_suffixes{
+      "_F1", "_F2", "_F3", "_E1", "_E2", "_E3", "_NN"};
+  for (const auto *suffix : topological_suffixes) {
+    if (field_name.ends_with(suffix)) {
+      field_name.erase(field_name.size() - std::char_traits<char>::length(suffix));
+      break;
+    }
+  }
+  PARTHENON_REQUIRE_THROWS(!field_name.empty(),
+                           "OpenPMD mesh record '" + record_name +
+                               "' does not contain a logical field name.");
+  return field_name;
 }
 
 std::tuple<openPMD::Offset, openPMD::Extent>
@@ -658,6 +692,13 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // get list of all vars, just use first block as the list is the same for all blocks
   auto all_vars_info =
       VarInfo::GetAll(get_vars(pm->block_list.front()), bounds, f_bounds);
+
+  std::vector<std::string> field_names;
+  field_names.reserve(all_vars_info.size());
+  for (const auto &vinfo : all_vars_info) {
+    field_names.push_back(vinfo.label);
+  }
+  it.setAttribute("OutputDatasetNames", field_names);
 
   // Mirroring the SparseInfo handling in HDF5 here.
   // Could probably made easier by just sequentially filling vectors, but better be safe

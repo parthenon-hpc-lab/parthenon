@@ -5,7 +5,9 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-
+- [[PR 1463]](https://github.com/parthenon-hpc-lab/parthenon/pull/1463) Add
+  analysis-only initialization from HDF5 and openPMD outputs, filtered field loading,
+  ``Metadata::Analysis`` state, and analysis-triggered outputs.
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 1473]](https://github.com/parthenon-hpc-lab/parthenon/pull/1473) Rename boundary buffer ids/comm channels to comm lanes (`MeshData::SetBoundBufferId` -> `MeshData::SetCommLane`, `Mesh::SetNumberOfCommChannels` -> `Mesh::SetNumberOfCommLanes`, old names are removed) and make `MeshData::partition` a pointer to the `BlockListPartition` the `MeshData` was built from

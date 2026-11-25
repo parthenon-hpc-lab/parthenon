@@ -1,5 +1,7 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -268,6 +270,31 @@ void UserMeshWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &) 
         "Advection::FillDerived", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           deriv(0, k, j, i) = std::log10(q(0, k, j, i) + 1.0e-5);
+        });
+
+    const auto pkg = pmb->packages.Get("advection_package");
+    if (!pkg->AllParams().hasKey("test_analysis_fields") ||
+        !pkg->Param<bool>("test_analysis_fields"))
+      continue;
+
+    const bool has_excluded = rc->HasVariable("analysis_excluded_var");
+    const bool has_omitted = rc->HasVariable("analysis_omitted_var");
+    const bool has_analysis_only = rc->HasVariable("analysis_only_var");
+    const bool has_analysis_sparse = rc->HasVariable("analysis_only_sparse_7");
+    if (has_analysis_sparse) pmb->AllocateSparse("analysis_only_sparse_7");
+
+    auto excluded = has_excluded ? rc->Get("analysis_excluded_var").data : q;
+    auto omitted = has_omitted ? rc->Get("analysis_omitted_var").data : q;
+    auto analysis_only = has_analysis_only ? rc->Get("analysis_only_var").data : q;
+    auto analysis_sparse =
+        has_analysis_sparse ? rc->Get("analysis_only_sparse_7").data : q;
+    pmb->par_for(
+        "Advection::FillAnalysisFields", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          if (has_excluded) excluded(0, k, j, i) = 3.0 * q(0, k, j, i);
+          if (has_omitted) omitted(0, k, j, i) = 5.0 * q(0, k, j, i);
+          if (has_analysis_only) analysis_only(0, k, j, i) = 2.0 * q(0, k, j, i);
+          if (has_analysis_sparse) analysis_sparse(0, k, j, i) = 4.0 * q(0, k, j, i);
         });
   }
 }

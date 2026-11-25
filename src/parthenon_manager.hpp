@@ -1,5 +1,7 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -50,6 +52,9 @@ class ParthenonManager {
 
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
       ProcessPackagesDefault;
+
+  //! True when startup was requested with -a rather than fresh or restart mode.
+  bool IsAnalysis() const { return arg.analysis_flag; }
 
   // member data
   std::unique_ptr<ParameterInput> pinput;
