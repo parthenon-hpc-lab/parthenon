@@ -59,5 +59,6 @@ swarms = my_particles
 swarm_variables = v, vv
 
 <parthenon/output1>
-file_type = rst
+file_type = hdf5
+output_type = restart
 dt = 1.0

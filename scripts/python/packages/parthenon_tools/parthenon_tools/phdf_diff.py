@@ -212,7 +212,8 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
             return ret_code
 
     # Compare the names of attributes in /Info, except those we know
-    # may vary safely
+    # may vary safely. OutputType describes how fields were selected, not their
+    # values, and is absent from legacy files.
     f0_Info = {
         key: value
         for key, value in f0.Info.items()
@@ -220,6 +221,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
         and key != "BlocksPerPE"
         and key != "WallTime"
         and key != "OutputFormatVersion"
+        and key != "OutputType"
         and key != "BoundaryConditions"
         and key != "SwarmBoundaryConditions"
         and key != "ParthenonGitHash"
@@ -237,6 +239,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
         and key != "BlocksPerPE"
         and key != "WallTime"
         and key != "OutputFormatVersion"
+        and key != "OutputType"
         and key != "BoundaryConditions"
         and key != "SwarmBoundaryConditions"
         and key != "ParthenonGitHash"
