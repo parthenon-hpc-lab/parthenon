@@ -35,6 +35,7 @@ list(APPEND unit_tests_SOURCES
     test_index_split.cpp
     test_logical_location.cpp
     test_forest.cpp
+    test_remesh_plan.cpp
     test_metadata.cpp
     test_meshblock_data_iterator.cpp
     test_mesh_data.cpp

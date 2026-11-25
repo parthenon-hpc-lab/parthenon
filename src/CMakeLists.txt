@@ -216,6 +216,12 @@ add_library(parthenon
   mesh/forest/logical_location.hpp
   mesh/mesh_refinement.cpp
   mesh/mesh_refinement.hpp
+  mesh/index_shape.hpp
+  mesh/remesh/remesh_plan.hpp
+  mesh/remesh/topology.hpp
+  mesh/remesh/topology.cpp
+  mesh/remesh/placement.hpp
+  mesh/remesh/placement.cpp
   mesh/mesh-amr_loadbalance.cpp
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp

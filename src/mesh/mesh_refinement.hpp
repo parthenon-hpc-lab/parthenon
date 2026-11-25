@@ -54,6 +54,7 @@ class MeshRefinement {
   MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
   void SetRefinement(AmrTag flag);
+  AmrTag GetRefinementTag() const { return refine_flag_; }
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
   int AddToRefinement(std::shared_ptr<Variable<Real>> pvar);
@@ -69,7 +70,8 @@ class MeshRefinement {
   std::weak_ptr<MeshBlock> pmy_block_;
   Coordinates_t coarse_coords;
 
-  int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;
+  AmrTag refine_flag_{AmrTag::same};
+  int neighbor_rflag_, deref_count_, deref_threshold_;
 
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
   VariableSet<Real> pvars_cc_;

@@ -63,6 +63,42 @@ std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
   return mb_list;
 }
 
+Forest Forest::CloneForRemesh() const {
+  Forest clone;
+  clone.gids_resolved = gids_resolved;
+  clone.root_level = root_level;
+  clone.forest_level = forest_level;
+
+  for (const auto &[id, tree] : trees) {
+    auto cloned_tree = Tree::create(tree->my_id, tree->ndim, root_level, tree->domain,
+                                    tree->boundary_conditions);
+    cloned_tree->leaves = tree->leaves;
+    cloned_tree->internal_nodes = tree->internal_nodes;
+    cloned_tree->athena_forest_loc = tree->athena_forest_loc;
+    cloned_tree->forest_nodes = tree->forest_nodes;
+    std::copy(std::begin(tree->MeshBndryFnctn), std::end(tree->MeshBndryFnctn),
+              std::begin(cloned_tree->MeshBndryFnctn));
+    std::copy(std::begin(tree->SwarmBndryFnctn), std::end(tree->SwarmBndryFnctn),
+              std::begin(cloned_tree->SwarmBndryFnctn));
+    cloned_tree->UserBoundaryFunctions = tree->UserBoundaryFunctions;
+    cloned_tree->UserSwarmBoundaryFunctions = tree->UserSwarmBoundaryFunctions;
+    for (auto &neighbors : cloned_tree->neighbors)
+      neighbors.clear();
+    clone.trees.emplace(id, std::move(cloned_tree));
+  }
+
+  for (const auto &[id, tree] : trees) {
+    auto &cloned_tree = clone.trees.at(id);
+    for (std::size_t offset = 0; offset < tree->neighbors.size(); ++offset) {
+      for (const auto &[neighbor, transform] : tree->neighbors[offset]) {
+        cloned_tree->neighbors[offset].emplace(clone.trees.at(neighbor->GetId()).get(),
+                                               transform);
+      }
+    }
+  }
+  return clone;
+}
+
 Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
                                 std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs) {
   std::array<bool, 3> periodic{mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
