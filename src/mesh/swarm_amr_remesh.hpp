@@ -20,41 +20,42 @@
 #include <vector>
 
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_layout.hpp"
 
 namespace parthenon {
 
 struct SwarmRemeshContext {
   SwarmRemeshContext(int old_gid_first_in, int old_gid_last_in,
-                     const std::vector<int> &old_to_new_gid_in,
-                     const std::vector<LogicalLocation> &old_locs_in,
-                     const std::vector<LogicalLocation> &new_locs_in,
-                     const std::vector<int> &old_ranks_in,
-                     const std::vector<int> &new_ranks_in)
+                     const MeshLayout &old_layout_in, const MeshLayout &new_layout_in)
       : old_gid_first(old_gid_first_in), old_gid_last(old_gid_last_in),
-        old_to_new_gid(old_to_new_gid_in), old_locs(old_locs_in), new_locs(new_locs_in),
-        old_ranks(old_ranks_in), new_ranks(new_ranks_in) {}
+        old_layout(old_layout_in), new_layout(new_layout_in) {}
 
-  int NewGid(const int old_gid) const { return old_to_new_gid[old_gid]; }
-  const LogicalLocation &OldLoc(const int old_gid) const { return old_locs[old_gid]; }
-  const LogicalLocation &NewLoc(const int new_gid) const { return new_locs[new_gid]; }
-  const LogicalLocation &NewLocFromOld(const int old_gid) const {
-    return new_locs[NewGid(old_gid)];
+  // The new block at the same location as the old block, its parent, or (for a refined
+  // block) its first daughter
+  int NewGid(const int old_gid) const {
+    return new_layout.GetOverlappingGids(OldLoc(old_gid))[0];
   }
-  int OldRank(const int old_gid) const { return old_ranks[old_gid]; }
-  int NewRank(const int new_gid) const { return new_ranks[new_gid]; }
-  int NewRankFromOld(const int old_gid) const { return new_ranks[NewGid(old_gid)]; }
-  int NumOldBlocks() const { return old_locs.size(); }
-  int NumNewBlocks() const { return new_locs.size(); }
+  const LogicalLocation &OldLoc(const int old_gid) const {
+    return old_layout.Loc(old_gid);
+  }
+  const LogicalLocation &NewLoc(const int new_gid) const {
+    return new_layout.Loc(new_gid);
+  }
+  const LogicalLocation &NewLocFromOld(const int old_gid) const {
+    return NewLoc(NewGid(old_gid));
+  }
+  int OldRank(const int old_gid) const { return old_layout.Rank(old_gid); }
+  int NewRank(const int new_gid) const { return new_layout.Rank(new_gid); }
+  int NewRankFromOld(const int old_gid) const { return NewRank(NewGid(old_gid)); }
+  int NumOldBlocks() const { return old_layout.NumBlocks(); }
+  int NumNewBlocks() const { return new_layout.NumBlocks(); }
 
   int old_gid_first;
   int old_gid_last;
 
  private:
-  const std::vector<int> &old_to_new_gid;
-  const std::vector<LogicalLocation> &old_locs;
-  const std::vector<LogicalLocation> &new_locs;
-  const std::vector<int> &old_ranks;
-  const std::vector<int> &new_ranks;
+  const MeshLayout &old_layout;
+  const MeshLayout &new_layout;
 };
 
 void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,

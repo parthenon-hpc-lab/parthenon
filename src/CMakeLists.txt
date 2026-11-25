@@ -220,6 +220,8 @@ add_library(parthenon
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
+  mesh/mesh_layout.cpp
+  mesh/mesh_layout.hpp
   mesh/mesh_neighbors.hpp
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp

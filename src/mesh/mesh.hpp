@@ -49,6 +49,7 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
 #include "mesh/forest/forest_topology.hpp"
+#include "mesh/mesh_layout.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "pack/sparse_pack/pack_descriptor.hpp"
@@ -507,10 +508,7 @@ class Mesh {
                                        int ntot);
   std::vector<std::vector<NeighborBlock>>
   SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs, int nbs, int nbe,
-                      const std::vector<LogicalLocation> &newloc,
-                      const std::vector<int> &newrank,
-                      const std::unordered_map<LogicalLocation, int> &old_gid_of,
-                      const std::unordered_map<LogicalLocation, int> &new_gid_of);
+                      const MeshLayout &old_layout, const MeshLayout &new_layout);
   // Derefinement and sparse deallocation counters of the blocks that move between ranks
   // at the same level, by the other rank
   struct RemeshCounterBuffers_ {
@@ -519,10 +517,8 @@ class Mesh {
   };
   RemeshCounterBuffers_ SendRemeshCounters_(const BlockList_t &old_blocks, int onbs,
                                             int nbs, int nbe,
-                                            const std::vector<int> &oldtonew,
-                                            const std::vector<int> &newtoold,
-                                            const std::vector<LogicalLocation> &newloc,
-                                            const std::vector<int> &newrank);
+                                            const MeshLayout &old_layout,
+                                            const MeshLayout &new_layout);
   bool RemeshCountersSent_(RemeshCounterBuffers_ &counters);
   bool TryReceiveRemeshCounters_(RemeshCounterBuffers_ &counters);
   void SetRemeshCounters_(const RemeshCounterBuffers_ &counters,

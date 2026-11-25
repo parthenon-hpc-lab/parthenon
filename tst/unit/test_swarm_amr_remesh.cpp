@@ -36,6 +36,7 @@ namespace {
 using parthenon::ApplicationInput;
 using parthenon::LogicalLocation;
 using parthenon::Mesh;
+using parthenon::MeshLayout;
 using parthenon::Metadata;
 using parthenon::Packages_t;
 using parthenon::ParameterInput;
@@ -164,6 +165,13 @@ std::shared_ptr<parthenon::MeshBlock> FindBlock(const std::shared_ptr<Mesh> &mes
   return nullptr;
 }
 
+// All blocks on rank 0 with unit cost
+MeshLayout MakeLayout(const std::shared_ptr<Mesh> &mesh) {
+  const auto locs = mesh->GetLocList();
+  return MeshLayout(locs, std::vector<int>(locs.size(), 0),
+                    std::vector<double>(locs.size(), 1.0), mesh->ndim);
+}
+
 } // namespace
 
 //----------------------------------------------------------------------------------------
@@ -182,13 +190,9 @@ TEST_CASE("Swarm particles remesh onto refined blocks", "[swarm][amr][MPI]") {
   AddParticles(GetSwarm(coarse_mesh->block_list.front()),
                {{0.25, 0.25}, {0.75, 0.25}, {0.25, 0.75}, {0.75, 0.75}});
 
-  const auto old_locs = coarse_mesh->GetLocList();
-  const auto new_locs = refined_mesh->GetLocList();
-  const std::vector<int> old_to_new = {0};
-  const std::vector<int> old_ranks(old_locs.size(), 0);
-  const std::vector<int> new_ranks(new_locs.size(), 0);
-  const SwarmRemeshContext context(0, 0, old_to_new, old_locs, new_locs, old_ranks,
-                                   new_ranks);
+  const auto old_layout = MakeLayout(coarse_mesh);
+  const auto new_layout = MakeLayout(refined_mesh);
+  const SwarmRemeshContext context(0, 0, old_layout, new_layout);
 
   parthenon::RemeshSwarms(refined_mesh->resolved_packages, coarse_mesh->block_list,
                           refined_mesh.get(), context);
@@ -227,13 +231,9 @@ TEST_CASE("Swarm particles remesh onto derefined blocks", "[swarm][amr][MPI]") {
   AddParticles(GetSwarm(FindBlock(refined_mesh, LogicalLocation(0, 1, 1, 1, 0))),
                {{0.75, 0.75}});
 
-  const auto old_locs = refined_mesh->GetLocList();
-  const auto new_locs = coarse_mesh->GetLocList();
-  const std::vector<int> old_to_new(old_locs.size(), 0);
-  const std::vector<int> old_ranks(old_locs.size(), 0);
-  const std::vector<int> new_ranks(new_locs.size(), 0);
-  const SwarmRemeshContext context(0, old_locs.size() - 1, old_to_new, old_locs, new_locs,
-                                   old_ranks, new_ranks);
+  const auto old_layout = MakeLayout(refined_mesh);
+  const auto new_layout = MakeLayout(coarse_mesh);
+  const SwarmRemeshContext context(0, old_layout.NumBlocks() - 1, old_layout, new_layout);
 
   parthenon::RemeshSwarms(coarse_mesh->resolved_packages, refined_mesh->block_list,
                           coarse_mesh.get(), context);
