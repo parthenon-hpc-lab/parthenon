@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -60,6 +61,50 @@ struct MemoryFootprint {
   std::uint64_t execution_stage_reserve{0};
   std::uint64_t finalization_reserve{0};
   EstimateQuality quality{EstimateQuality::estimate};
+};
+
+using FieldSchemaId = std::uint32_t;
+using SwarmSchemaId = std::uint32_t;
+
+struct CounterPolicy {
+  int allocation_count{0};
+  int deallocation_count{0};
+  bool inherited{false};
+};
+
+struct PlannedField {
+  FieldSchemaId field;
+  bool allocated_after_transfer{false};
+  bool state_survives_remesh{false};
+  bool reserved_for_finalization{false};
+  std::uint64_t data_bytes{0};
+  std::uint64_t coarse_bytes{0};
+  CounterPolicy counters;
+};
+
+struct PlannedSwarm {
+  SwarmSchemaId swarm;
+  std::uint64_t active_count{0};
+  std::uint64_t capacity{0};
+};
+
+struct BlockInventory {
+  BlockKey key;
+  int derefinement_count{0};
+  std::vector<PlannedField> fields;
+  std::vector<PlannedSwarm> swarms;
+  MemoryFootprint footprint;
+};
+
+struct ParticleRoute {
+  int source_index;
+  std::int64_t destination_gid;
+};
+
+struct LocalSwarmRoutes {
+  std::string swarm_name;
+  std::int64_t source_gid;
+  std::vector<ParticleRoute> particles;
 };
 
 struct OwnershipMap {

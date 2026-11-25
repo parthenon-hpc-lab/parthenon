@@ -46,6 +46,7 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/remesh/placement.hpp"
+#include "mesh/remesh/inventory.hpp"
 #include "mesh/remesh/topology.hpp"
 #include "mesh/swarm_amr_remesh.hpp"
 #include "parthenon_arrays.hpp"
@@ -320,12 +321,16 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                                   ApplicationInput *app_in) {
   PARTHENON_INSTRUMENT
   remesh::TopologyPlan topology;
+  remesh::InventoryPlan inventory;
 
   if (adaptive) {
     topology = PlanAdaptiveMeshTopology();
     nbnew += topology.added_blocks;
     nbdel += topology.removed_blocks;
-    if (topology.changed) forest = std::move(*topology.candidate);
+    if (topology.changed) {
+      inventory = remesh::PlanInventory(*this, topology);
+      forest = std::move(*topology.candidate);
+    }
   }
 
   lb_flag_ |= lb_automatic_;
@@ -337,7 +342,7 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
     GatherCostListAndCheckBalance();
     ExecuteLegacyRemeshPlan(pin, app_in,
                             nbtotal + topology.added_blocks - topology.removed_blocks,
-                            &topology);
+                            &topology, &inventory);
     modified = true;
   } else if (lb_flag_ && step_since_lb >= lb_interval_) {
     if (!GatherCostListAndCheckBalance()) { // load imbalance detected
@@ -554,7 +559,8 @@ bool Mesh::GatherCostListAndCheckBalance() {
 // \brief execute an accepted topology with the compatibility transfer path
 
 void Mesh::ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in,
-                                   int ntot, const remesh::TopologyPlan *topology) {
+                                   int ntot, const remesh::TopologyPlan *topology,
+                                   const remesh::InventoryPlan *inventory) {
   PARTHENON_INSTRUMENT
   // kill all old MeshData
   mesh_data.clear();
@@ -848,7 +854,8 @@ void Mesh::ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in
     // after the new leaf mesh and field state are already in place.
     const SwarmRemeshContext swarm_remesh_context(onbs, onbe, oldtonew, loclist, newloc,
                                                   ranklist, newrank);
-    RemeshSwarms(resolved_packages, old_block_list, this, swarm_remesh_context);
+    RemeshSwarms(resolved_packages, old_block_list, this, swarm_remesh_context,
+                 inventory == nullptr ? nullptr : &inventory->local_swarm_routes);
     ClearSwarmCachesAfterRemesh(this, block_list);
 
     // update the lists
