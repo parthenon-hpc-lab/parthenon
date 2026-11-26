@@ -10,9 +10,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
+#include <cstddef>
 #include <cstdio>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <regex>
 #include <string>
@@ -189,21 +192,25 @@ void TaskRegion::AppendTasks(std::vector<std::shared_ptr<Task>> &tasks_inout) {
 void TaskRegion::AddRegionalDependencies(const std::vector<TaskList *> &tls) {
   const auto num_lists = tls.size();
   const auto num_regional = tls.front()->NumRegional();
+  PARTHENON_REQUIRE(num_regional <=
+                        static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                    "Regional task count exceeds the int index range.");
+  const int regional_count = static_cast<int>(num_regional);
   std::vector<Task *> tasks(num_lists);
-  for (int i = 0; i < num_regional; i++) {
-    for (int j = 0; j < num_lists; j++) {
+  for (int i = 0; i < regional_count; i++) {
+    for (std::size_t j = 0; j < num_lists; j++) {
       tasks[j] = tls[j]->Regional(i);
     }
     std::vector<std::vector<Task *>> reg_dep;
-    for (int j = 0; j < num_lists; j++) {
+    for (std::size_t j = 0; j < num_lists; j++) {
       reg_dep.push_back(std::vector<Task *>());
       for (auto t : tasks[j]->GetDependent(TaskStatus::complete)) {
         reg_dep[j].push_back(t);
       }
     }
-    for (int j = 0; j < num_lists; j++) {
+    for (std::size_t j = 0; j < num_lists; j++) {
       for (auto t : reg_dep[j]) {
-        for (int k = 0; k < num_lists; k++) {
+        for (std::size_t k = 0; k < num_lists; k++) {
           if (j == k) continue;
           t->AddDependency(tasks[k]);
           tasks[k]->AddDependent(t, TaskStatus::complete);
@@ -225,7 +232,7 @@ void TaskRegion::BuildGraph() {
   int num_sublists = tls.front().size();
   std::vector<TaskList *> matching_lists(task_lists.size());
   for (int sl = 0; sl < num_sublists; ++sl) {
-    for (int i = 0; i < task_lists.size(); ++i)
+    for (std::size_t i = 0; i < task_lists.size(); ++i)
       matching_lists[i] = tls[i][sl];
     AddRegionalDependencies(matching_lists);
   }

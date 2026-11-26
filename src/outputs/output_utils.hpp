@@ -3,6 +3,7 @@
 // Copyright(C) 2023-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -21,6 +22,7 @@
 // C++
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <functional>
 #include <map>
 #include <memory>
@@ -147,15 +149,15 @@ struct VarInfo {
           std::array<int, VNDIM> nx, Metadata metadata,
           const std::vector<TopologicalElement> topological_elements, bool is_sparse,
           bool is_vector, const IndexShape &cellbounds)
-      : base_name(base_name), label(label), sparse_label(sparse_label),
-        num_components(num_components), nx_(nx), tensor_rank(metadata.Shape().size()),
-        where(metadata.Where()),
+      : base_name(base_name), label(label), num_components(num_components),
+        tensor_rank(metadata.Shape().size()), where(metadata.Where()),
         is_mem_aligned(metadata.IsSet(Metadata::CellMemAligned) &&
                        !metadata.IsSet(Metadata::Cell)),
-        topological_elements(topological_elements), is_sparse(is_sparse),
-        is_vector(is_vector), cellbounds(cellbounds), rnx_(nx_.rbegin(), nx_.rend()),
-        ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1),
-        is_coordinate_field(metadata.IsCoordinateField()) {
+        is_sparse(is_sparse), is_vector(is_vector),
+        is_coordinate_field(metadata.IsCoordinateField()), cellbounds(cellbounds),
+        sparse_label(sparse_label), topological_elements(topological_elements),
+        ntop_elems(topological_elements.size()), element_matters(ntop_elems > 1), nx_(nx),
+        rnx_(nx_.rbegin(), nx_.rend()) {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
@@ -168,7 +170,8 @@ struct VarInfo {
     const auto component_label_prefix = GetBaseName();
 
     component_labels = [&]() -> std::vector<std::string> {
-      const bool has_labels = component_labels_.size() == num_components;
+      const bool has_labels =
+          component_labels_.size() == static_cast<std::size_t>(num_components);
 
       const auto suffix = [&](const int i) -> std::string {
         // suffix only if explicit component labels or multi-component variable
@@ -217,7 +220,7 @@ struct SwarmVarInfo {
   SwarmVarInfo(int n6, int n5, int n4, int n3, int n2, int rank,
                const std::string &swtype, bool vector)
       : n({n2, n3, n4, n5, n6}), nvar(n6 * n5 * n4 * n3 * n2), tensor_rank(rank),
-        swtype(swtype), vector((tensor_rank == 1) && (nvar == 3) && vector) {}
+        vector((tensor_rank == 1) && (nvar == 3) && vector), swtype(swtype) {}
   int GetN(int d) const {
     PARTHENON_DEBUG_REQUIRE_THROWS(1 < d && d <= 6, "allowed dim");
     return n[d - 2];

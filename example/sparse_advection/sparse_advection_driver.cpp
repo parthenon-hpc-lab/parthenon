@@ -10,7 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -71,7 +73,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
   TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
 
   assert(blocks.size() == async_region1.size());
-  for (int i = 0; i < blocks.size(); i++) {
+  for (std::size_t i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
 
@@ -125,7 +127,7 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
   assert(blocks.size() == async_region2.size());
-  for (int i = 0; i < blocks.size(); i++) {
+  for (std::size_t i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);

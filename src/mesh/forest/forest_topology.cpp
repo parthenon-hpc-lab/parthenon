@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <array>
@@ -144,7 +145,8 @@ void Face::SetEdgeCoordinateTransforms() {
 
 void Face::SetNodeCoordinateTransforms() {
   Indexer2D offset_idxer({-1, 1}, {-1, 1});
-  for (int n = 0; n < offset_idxer.size(); ++n) {
+  const int num_offset_idxer_indices = static_cast<int>(offset_idxer.size());
+  for (int n = 0; n < num_offset_idxer_indices; ++n) {
     auto [ox1, ox2] = offset_idxer(n);
     if (std::abs(ox1) + std::abs(ox2) == 2) {
       for (auto &[w_neighbor, coord_trans] : neighbors(ox1, ox2)) {

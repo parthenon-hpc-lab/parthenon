@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <iostream> // debug
+#include <limits>
 #include <memory>
 #include <random>
 #include <string>
@@ -114,15 +115,17 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
-  if (sending_nonzero_flags.size() != (nbound * nteams_per_buffer)) {
-    sending_nonzero_flags =
-        ParArray1D<bool>("sending_nonzero_flags", nbound * nteams_per_buffer);
+  PARTHENON_REQUIRE(nbound <= std::numeric_limits<int>::max() / nteams_per_buffer,
+                    "Boundary team count exceeds the int league-index range.");
+  const std::size_t num_flags = static_cast<std::size_t>(nbound) * nteams_per_buffer;
+  if (sending_nonzero_flags.size() != num_flags) {
+    sending_nonzero_flags = ParArray1D<bool>("sending_nonzero_flags", num_flags);
     sending_nonzero_flags_h = Kokkos::create_mirror_view(sending_nonzero_flags);
   }
 
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), static_cast<int>(num_flags),
                            Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank() / nteams_per_buffer;
@@ -191,7 +194,8 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
     } else {
       // Reduce flags over all of the teams that contributed to filling a given buffer
       bool sending_nonz{false};
-      for (int i = ibuf * nteams_per_buffer; i < (ibuf + 1) * nteams_per_buffer; ++i)
+      for (std::size_t i = ibuf * nteams_per_buffer; i < (ibuf + 1) * nteams_per_buffer;
+           ++i)
         sending_nonz = sending_nonz || sending_nonzero_flags_h(i);
 
       if (sending_nonz) {

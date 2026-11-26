@@ -10,7 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
+#include <cstddef>
 #include <vector>
 
 #include "interface/mesh_data.hpp"
@@ -28,12 +30,11 @@ SparsePackBase &SparsePackCache::Get(T *pmd, const PackDescriptor &desc,
     auto &desc_pack_map = pack_map[desc.identifier];
     if (desc_pack_map.count(include_block)) {
       auto &cache_tuple = desc_pack_map[include_block];
-      auto &pack = std::get<0>(cache_tuple);
       auto alloc_status_in = SparsePackBase::GetAllocStatus(pmd, desc, include_block);
       auto &alloc_status = std::get<1>(cache_tuple);
       if (alloc_status.size() != alloc_status_in.size())
         return BuildAndAdd(pmd, desc, include_block);
-      for (int i = 0; i < alloc_status_in.size(); ++i) {
+      for (std::size_t i = 0; i < alloc_status_in.size(); ++i) {
         if (alloc_status[i] != alloc_status_in[i])
           return BuildAndAdd(pmd, desc, include_block);
       }

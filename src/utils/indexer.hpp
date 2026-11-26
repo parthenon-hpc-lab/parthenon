@@ -18,6 +18,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <limits>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -27,6 +29,7 @@
 
 #include "basic_types.hpp"
 #include "utils/concepts_lite.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
 
@@ -184,8 +187,14 @@ struct Indexer {
     (
         [&] {
           constexpr std::size_t idx = sizeof...(Ts) - (Is + 1);
-          cur *= Nt[idx];
-          N[idx] = cur;
+          PARTHENON_REQUIRE(Nt[idx] >= 0, "Indexer extents must be nonnegative.");
+          const auto extent = static_cast<std::size_t>(Nt[idx]);
+          PARTHENON_REQUIRE(extent == 0 || cur <= static_cast<std::size_t>(
+                                                      std::numeric_limits<int>::max()) /
+                                                      extent,
+                            "Indexer size exceeds the int index range.");
+          cur *= extent;
+          N[idx] = static_cast<int>(cur);
         }(),
         ...);
     return N;
@@ -249,7 +258,7 @@ class SpatiallyMaskedIndexer : public Indexer<Ts...> {
   template <class... Args>
   KOKKOS_INLINE_FUNCTION SpatiallyMaskedIndexer(const block_ownership_t &active,
                                                 std::pair<Ts, Ts>... Ns)
-      : active_(active), Indexer<Ts...>(Ns...) {}
+      : Indexer<Ts...>(Ns...), active_(active) {}
 
   KOKKOS_INLINE_FUNCTION
   bool IsActive(int k, int j, int i) const {

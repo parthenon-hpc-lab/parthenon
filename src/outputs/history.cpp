@@ -3,6 +3,7 @@
 // Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -20,6 +21,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>

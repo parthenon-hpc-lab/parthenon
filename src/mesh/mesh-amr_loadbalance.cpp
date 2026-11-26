@@ -25,6 +25,7 @@
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <numeric>
@@ -391,7 +392,7 @@ void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
   // Then find the starting gid of the blocks, assuming they
   // are apportioned in increasing order
   nslist = std::vector<int>(Globals::nranks, 0);
-  for (int b = 1; b < nslist.size(); ++b)
+  for (std::size_t b = 1; b < nslist.size(); ++b)
     nslist[b] = nslist[b - 1] + nblist[b - 1];
 }
 } // namespace
@@ -404,11 +405,13 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
   PARTHENON_INSTRUMENT
   auto const total_blocks = costlist.size();
 
+#ifdef MPI_PARALLEL
   using it = std::vector<double>::const_iterator;
   std::pair<it, it> const min_max = std::minmax_element(costlist.begin(), costlist.end());
 
   double const mincost = min_max.first == costlist.begin() ? 0.0 : *min_max.first;
   double const maxcost = min_max.second == costlist.begin() ? 0.0 : *min_max.second;
+#endif
 
   // Assigns blocks to ranks on a rougly cost-equal basis.
   AssignBlocks(costlist, ranklist);
@@ -425,7 +428,7 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
               << "This will result in poor load balancing." << std::endl;
   }
 #endif
-  if (Globals::nranks > total_blocks) {
+  if (static_cast<std::size_t>(Globals::nranks) > total_blocks) {
     if (!adaptive) {
       // mesh is refined statically, treat this an as error (all ranks need to
       // participate)
@@ -972,7 +975,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       std::string noncc = "mesh_internal_noncc";
       for (auto &partition : GetDefaultBlockPartitions()) {
         auto &md = mesh_data.Add("base", partition);
-        auto &md_noncc = mesh_data.AddShallow(noncc, md, noncc_names);
+        mesh_data.AddShallow(noncc, md, noncc_names);
       }
 
       CommunicateBoundaries(

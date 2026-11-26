@@ -20,6 +20,7 @@
 #ifndef BVALS_COMMS_BND_ID_HPP_
 #define BVALS_COMMS_BND_ID_HPP_
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -87,20 +88,20 @@ struct BndId {
   ~BndId() = default;
 
   explicit BndId(const int *const data_in) {
-    for (int i = 0; i < NDAT; ++i) {
+    for (std::size_t i = 0; i < NDAT; ++i) {
       data[i] = data_in[i];
     }
   }
 
   void Serialize(int *data_out) {
-    for (int i = 0; i < NDAT; ++i) {
+    for (std::size_t i = 0; i < NDAT; ++i) {
       data_out[i] = data[i];
     }
   }
 
   bool SameBVChannel(const BndId &other) {
     // Don't want to compare start_idx, so -1
-    for (int i = 0; i < NDAT - 1; ++i) {
+    for (std::size_t i = 0; i < NDAT - 1; ++i) {
       if (data[i] != other.data[i]) return false;
     }
     return true;

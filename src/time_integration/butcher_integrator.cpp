@@ -10,7 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -236,7 +238,7 @@ ButcherIntegrator::ButcherIntegrator(ParameterInput *pin)
 
 void ButcherIntegrator::Resize_(int nstages) {
   a.resize(nstages);
-  for (int i = 0; i < a.size(); ++i) {
+  for (std::size_t i = 0; i < a.size(); ++i) {
     a[i].resize(nstages);
   }
   b.resize(nstages);

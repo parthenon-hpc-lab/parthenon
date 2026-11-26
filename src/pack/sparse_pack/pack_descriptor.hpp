@@ -10,10 +10,13 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef PACK_SPARSE_PACK_PACK_DESCRIPTOR_HPP_
 #define PACK_SPARSE_PACK_PACK_DESCRIPTOR_HPP_
 
 #include <algorithm>
+#include <cstddef>
+#include <limits>
 #include <set>
 #include <string>
 #include <tuple>
@@ -23,6 +26,7 @@
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/var_id.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/hash.hpp"
 #include "utils/unique_id.hpp"
 
@@ -68,9 +72,10 @@ struct PackDescriptor {
   static int GetNVarsTotal(const std::vector<VariableGroup_t> &var_groups) {
     int nvar_tot = 0;
     for (const auto &group : var_groups) {
-      for (const auto &[a, b] : group) {
-        nvar_tot++;
-      }
+      PARTHENON_REQUIRE(group.size() <= static_cast<std::size_t>(
+                                            std::numeric_limits<int>::max() - nvar_tot),
+                        "Pack variable count exceeds the int range.");
+      nvar_tot += static_cast<int>(group.size());
     }
     return nvar_tot;
   }

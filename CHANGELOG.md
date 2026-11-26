@@ -12,6 +12,7 @@
 - [[PR 1446]](https://github.com/parthenon-hpc-lab/parthenon/pull/1446) Die on repeatedly receiving SIGINT
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1488]](https://github.com/parthenon-hpc-lab/parthenon/pull/1488) Fix CPU compiler warnings and add guards for size limits and naming conventions
 - [[PR 1502]](https://github.com/parthenon-hpc-lab/parthenon/pull/1502) Make Toth & Roe internal prolongation divergence free for non-cubic cells and curvilinear coordinates
 - [[PR 1473]](https://github.com/parthenon-hpc-lab/parthenon/pull/1473) Support coalesced communication with multiple comm lanes (e.g. multigrid with `do_coalesced_comms=true`), fix coalesced communication for partitions that don't communicate with every neighboring rank and for partitions on different grids
 - [[PR 1445]](https://github.com/parthenon-hpc-lab/parthenon/pull/1445) Fix ownership for self-bordering blocks

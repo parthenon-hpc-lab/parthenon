@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include "parthenon_manager.hpp"
 
@@ -42,18 +43,19 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos.
   // This needs to be scoped so that the driver object is destructed before Finalize
   pman.ParthenonInitPackagesAndMesh();
+  parthenon::DriverStatus driver_status;
   {
     // Initialize the driver
     advection_example::AdvectionDriver driver(pman.pinput.get(), pman.app_input.get(),
                                               pman.pmesh.get());
 
     // This line actually runs the simulation
-    auto driver_status = driver.Execute();
+    driver_status = driver.Execute();
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
 
   // MPI and Kokkos can no longer be used
 
-  return (0);
+  return driver_status != parthenon::DriverStatus::complete;
 }

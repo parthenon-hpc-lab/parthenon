@@ -10,7 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <limits>
 #include <memory>
@@ -139,10 +141,6 @@ void Swarm::SetupPersistentMPI() {
   auto pmb = GetBlockPointer();
   vbswarm->SetupPersistentMPI();
 
-  const int ndim = pmb->pmy_mesh->ndim;
-
-  const int nbmax = vbswarm->bd_var_.nbmax;
-
   // Build up convenience array of neighbor indices
   SetNeighborIndices_();
 
@@ -164,13 +162,9 @@ void Swarm::LoadBuffers_() {
   auto pmb = GetBlockPointer();
   const std::size_t particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
-  const std::size_t nneighbor = pmb->GetNeighbors().size();
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
 
-  auto &int_vector = std::get<getType<int>()>(vectors_);
-  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
-  auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
   PackIndexMap uint64_imap;
@@ -298,8 +292,6 @@ void Swarm::LoadBuffers_() {
 }
 
 void Swarm::Send(BoundaryCommSubset phase) {
-  auto pmb = GetBlockPointer();
-  const std::size_t nneighbor = pmb->GetNeighbors().size();
   auto swarm_d = GetDeviceContext();
 
   // Potentially resize buffer, get consistent index from particle array, get ready to
@@ -339,9 +331,6 @@ void Swarm::UnloadBuffers_() {
 
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
-    auto &int_vector = std::get<getType<int>()>(vectors_);
-    auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
-    auto &real_vector = std::get<getType<Real>()>(vectors_);
     PackIndexMap real_imap;
     PackIndexMap int_imap;
     PackIndexMap uint64_imap;
@@ -424,7 +413,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   auto &bdvar = vbswarm->bd_var_;
   bool all_boundaries_received = true;
   const auto &neighbors = pmb->GetNeighbors();
-  for (int n = 0; n < nneighbor; n++) {
+  for (std::size_t n = 0; n < nneighbor; n++) {
     const NeighborBlock &nb = neighbors[n];
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;

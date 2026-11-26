@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <memory>
 #include <string>
@@ -61,9 +62,7 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
   // first make other useful containers
   if (stage == 1) {
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &pmb = blocks[i];
-      // first make other useful containers
+    for (auto &pmb : blocks) {
       auto &base = pmb->meshblock_data.Get();
       pmb->meshblock_data.Add("dUdt", base);
       for (int s = 1; s < integrator->nstages; s++)

@@ -3,6 +3,7 @@
 // Copyright(C) 2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -31,8 +32,8 @@ namespace parthenon {
 inline std::string range_regex(unsigned a, unsigned b) {
   std::ostringstream pattern;
   pattern << "((" << std::to_string(a) << ")";
-  for (int i = a + 1; i <= b; i++) {
-    pattern << "|(" << std::to_string(i) << ")";
+  for (unsigned i = a; i < b; i++) {
+    pattern << "|(" << std::to_string(i + 1) << ")";
   }
   pattern << ")";
   return pattern.str();

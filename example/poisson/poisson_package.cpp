@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <cmath>
@@ -113,8 +114,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 template <typename T>
 TaskStatus SetMatrixElements(T *u) {
-  auto pm = u->GetParentPointer();
-
   IndexRange ib = u->GetBoundsI(IndexDomain::interior);
   IndexRange jb = u->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = u->GetBoundsK(IndexDomain::interior);
@@ -184,8 +183,6 @@ TaskStatus SumMass(T *u, Real *reduce_sum) {
 
 template <typename T>
 TaskStatus SumDeltaPhi(T *du, Real *reduce_sum) {
-  auto pm = du->GetParentPointer();
-
   IndexRange ib = du->GetBoundsI(IndexDomain::interior);
   IndexRange jb = du->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = du->GetBoundsK(IndexDomain::interior);
@@ -228,8 +225,6 @@ TaskStatus UpdatePhi(T *u, T *du) {
   PackIndexMap imap2;
   const auto &dv = du->PackVariables(phi_var, imap2);
   const int idphi = imap2["potential"].first;
-
-  using PackType = decltype(v);
 
   const parthenon::Coordinates_t &coords = GetCoords(pm);
   const int ndim = v.GetNdim();

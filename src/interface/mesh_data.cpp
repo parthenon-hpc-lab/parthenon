@@ -10,11 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-
-// This file was made in part with generative AI.
-#include <string>
-
+// This file was made in part with generative AI
 #include "mesh_data.hpp"
+
+#include <cstddef>
+#include <string>
 
 #include "mesh/mesh.hpp"
 
@@ -51,7 +51,8 @@ void MeshData<T>::SetMeshProperties(Mesh *pmesh) {
 
 template <typename T>
 void MeshData<T>::SetCommLane(BoundaryType btype, int lane) {
-  PARTHENON_REQUIRE(lane < pmy_mesh_->GetNumberOfCommLanes(btype),
+  PARTHENON_REQUIRE(lane >= 0 && static_cast<std::size_t>(lane) <
+                                     pmy_mesh_->GetNumberOfCommLanes(btype),
                     "Trying to set MeshData to communicate on a non-existent comm lane.");
   // We do not enforce symmetry here between associated senders and
   // receivers for maximum flexibility.

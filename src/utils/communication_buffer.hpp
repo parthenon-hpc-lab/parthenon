@@ -3,6 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -18,6 +19,7 @@
 #ifndef UTILS_COMMUNICATION_BUFFER_HPP_
 #define UTILS_COMMUNICATION_BUFFER_HPP_
 
+#include <cstddef>
 #include <cstdio>
 #include <iostream>
 #include <limits>
@@ -113,7 +115,7 @@ class CommBuffer {
   const T &buffer() const { return buf_; }
 
   void Allocate(int size = -1) {
-    if (!active_ || (size > 0 && buf_.size() != size)) {
+    if (!active_ || (size > 0 && buf_.size() != static_cast<std::size_t>(size))) {
       buf_ = get_resource_(size);
       active_ = true;
     }

@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <bitset>
+#include <cstddef>
 #include <exception>
 #include <initializer_list>
 #include <iostream>
@@ -555,7 +556,8 @@ class Metadata {
 
   /// returns true if bit is set, false otherwise
   bool IsSet(MetadataFlag bit) const {
-    return bit.flag_ < bits_.size() && bits_[bit.flag_];
+    const auto index = static_cast<std::size_t>(bit.flag_);
+    return index < bits_.size() && bits_[index];
   }
 
   // Refinement stuff
@@ -634,10 +636,11 @@ class Metadata {
 
   /// if flag is true set bit, clears otherwise
   void DoBit(MetadataFlag bit, bool flag) {
-    if (bit.flag_ >= bits_.size()) {
-      bits_.resize(bit.flag_ + 1);
+    const auto index = static_cast<std::size_t>(bit.flag_);
+    if (index >= bits_.size()) {
+      bits_.resize(index + 1);
     }
-    bits_[bit.flag_] = flag;
+    bits_[index] = flag;
   }
 
   /// count the number of set flags from the given list

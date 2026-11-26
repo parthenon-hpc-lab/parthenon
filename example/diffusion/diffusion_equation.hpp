@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef EXAMPLE_DIFFUSION_DIFFUSION_EQUATION_HPP_
 #define EXAMPLE_DIFFUSION_DIFFUSION_EQUATION_HPP_
 
@@ -33,7 +34,6 @@ FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md,
                    std::shared_ptr<parthenon::MeshData<Real>> &md_out) {
   using namespace parthenon;
   const int ndim = md->GetMeshPointer()->ndim;
-  using TE = parthenon::TopologicalElement;
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
@@ -268,7 +268,6 @@ class DiffusionEquation {
         scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
           const auto &coords = pack.GetCoordinates(b);
-          const int gid = pack.GetGID(b);
           const int level = pack.GetLevel(b, 0, 0, 0);
           for (int face = 0; face < ndim * 2; ++face) {
             const auto &idxer = idxers[face];

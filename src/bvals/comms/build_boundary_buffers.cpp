@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <iostream> // debug
+#include <limits>
 #include <memory>
 #include <random>
 #include <string>
@@ -79,7 +80,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
     // Add a buffer pool if one does not exist for this size
-    using buf_t = buf_pool_t<Real>::base_t;
     if (!pmesh->pool_map.Contains(buf_size)) {
       // Minimum number of comm buffers to initialize a pool of a
       // given shape with. As an upper bound, we use the maximum
@@ -120,7 +120,12 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Build send buffer (unless this is a receiving flux boundary)
     if constexpr (IsSender(BTYPE)) {
       pmesh->LockCommLaneNumbers(BTYPE);
-      for (int lane = 0; lane < pmesh->GetNumberOfCommLanes(BTYPE); ++lane) {
+      const auto lane_count = pmesh->GetNumberOfCommLanes(BTYPE);
+      PARTHENON_REQUIRE(lane_count <=
+                            static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                        "Communication lane count exceeds the int lane-ID range.");
+      const int num_lanes = static_cast<int>(lane_count);
+      for (int lane = 0; lane < num_lanes; ++lane) {
         auto s_key = SendKey(pmb, nb, v, BTYPE, lane);
         const int tag = pmesh->tag_map.GetTag(pmb, nb, lane);
         if (buf_map.count(s_key) == 0)
@@ -134,7 +139,12 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
         pmesh->LockCommLaneNumbers(BTYPE);
-        for (int lane = 0; lane < pmesh->GetNumberOfCommLanes(BTYPE); ++lane) {
+        const auto lane_count = pmesh->GetNumberOfCommLanes(BTYPE);
+        PARTHENON_REQUIRE(lane_count <=
+                              static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                          "Communication lane count exceeds the int lane-ID range.");
+        const int num_lanes = static_cast<int>(lane_count);
+        for (int lane = 0; lane < num_lanes; ++lane) {
           auto r_key = ReceiveKey(pmb, nb, v, BTYPE, lane);
           const int tag = pmesh->tag_map.GetTag(pmb, nb, lane);
           if (buf_map.count(r_key) == 0)

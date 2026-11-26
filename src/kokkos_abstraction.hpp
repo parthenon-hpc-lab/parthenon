@@ -3,6 +3,7 @@
 // Copyright(C) 2020-2023 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
@@ -20,6 +21,7 @@
 #ifndef KOKKOS_ABSTRACTION_HPP_
 #define KOKKOS_ABSTRACTION_HPP_
 
+#include <cstddef>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -59,11 +61,11 @@ static struct LoopPatternSimdFor {
 // Translates to a Kokkos 1D range (Kokkos::RangePolicy) where the wrapper takes
 // care of the (hidden) 1D index to `n`, `k`, `j`, `i indices conversion
 static struct LoopPatternFlatRange {
-} loop_pattern_flatrange_tag;
+} loop_pattern_flatrange_tag [[maybe_unused]];
 // Translates to a Kokkos multi dimensional  range (Kokkos::MDRangePolicy) with
 // a 1:1 indices matching
 static struct LoopPatternMDRange {
-} loop_pattern_mdrange_tag;
+} loop_pattern_mdrange_tag [[maybe_unused]];
 // Translates to a Kokkos::TeamPolicy that collapse Nthread & Nvector inner loops
 template <std::size_t num_thread, std::size_t num_vector>
 struct LoopPatternTeamThreadVec {
@@ -88,7 +90,7 @@ using LoopPatternTeamOuter = LoopPatternTeamThreadVec<0, 0>;
 constexpr auto loop_pattern_team_outer_tag = LoopPatternTeamOuter();
 // Used to catch undefined behavior as it results in throwing an error
 static struct LoopPatternUndefined {
-} loop_pattern_undefined_tag;
+} loop_pattern_undefined_tag [[maybe_unused]];
 
 // Tags for Nested parallelism
 
@@ -141,11 +143,11 @@ struct UsesHierarchicalPar<InnerLoopThreadVec<num_vector>> : std::true_type {
 
 namespace dispatch_impl {
 static struct ParallelForDispatch {
-} parallel_for_dispatch_tag;
+} parallel_for_dispatch_tag [[maybe_unused]];
 static struct ParallelReduceDispatch {
-} parallel_reduce_dispatch_tag;
+} parallel_reduce_dispatch_tag [[maybe_unused]];
 static struct ParallelScanDispatch {
-} parallel_scan_dispatch_tag;
+} parallel_scan_dispatch_tag [[maybe_unused]];
 
 template <class... Args>
 inline void kokkos_dispatch(ParallelForDispatch, Args &&...args) {
@@ -326,7 +328,8 @@ struct dispatch_collapse {
     } else {
       const auto idxer = MakeIndexer(
           std::pair<int, int>(bound_arr[ThreadIs].s, bound_arr[ThreadIs].e)...);
-      for (int idx = 0; idx < idxer.size(); idx++) {
+      const int num_idxer_indices = static_cast<int>(idxer.size());
+      for (int idx = 0; idx < num_idxer_indices; idx++) {
         const auto indices = idxer.GetIdxArray(idx);
 #pragma omp simd
         for (int i = bound_arr[Rank - 1].s; i <= bound_arr[Rank - 1].e; i++) {
@@ -464,7 +467,8 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     } else {
       const auto idxer =
           MakeIndexer(std::pair<int, int>(bound_arr[OuterIs].s, bound_arr[OuterIs].e)...);
-      for (int idx = 0; idx < idxer.size(); idx++) {
+      const int num_idxer_indices = static_cast<int>(idxer.size());
+      for (int idx = 0; idx < num_idxer_indices; idx++) {
         const auto indices = idxer.GetIdxArray(idx);
 #pragma omp simd
         for (int i = bound_arr[Rank - 1].s; i <= bound_arr[Rank - 1].e; i++) {
@@ -502,7 +506,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     static_assert(sizeof...(InnerIs) == 0);
     constexpr std::size_t Nouter = sizeof...(OuterIs);
     Kokkos::Array<int, Nouter> tiling;
-    for (int i = 0; i < Nouter - 1; i++)
+    for (std::size_t i = 0; i < Nouter - 1; i++)
       tiling[i] = 1;
     tiling[Nouter - 1] = bound_arr[Nouter - 1].e + 1 - bound_arr[Nouter - 1].s;
     kokkos_dispatch(Tag(), name,

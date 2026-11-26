@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 // Standard Includes
 #include <iostream>
@@ -103,7 +104,6 @@ TaskStatus SetBlockValues(MeshData<Real> *md) {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("boundary_exchange");
-  Params &params = package->AllParams();
 
   Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
              std::vector<int>{8});

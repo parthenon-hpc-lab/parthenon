@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <cstdio>
@@ -43,8 +44,6 @@ TaskListStatus DiffusionDriver::Step() {
   PARTHENON_REQUIRE(integrator.nstages == 1,
                     "Only first order time integration supported!");
 
-  BlockList_t &blocks = pmesh->block_list;
-  auto num_task_lists_executed_independently = blocks.size();
   status = MakeTaskCollection().Execute();
   return status;
 } // Step

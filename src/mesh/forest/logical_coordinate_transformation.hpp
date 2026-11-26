@@ -39,8 +39,8 @@ namespace forest {
 struct LogicalCoordinateTransformation {
   KOKKOS_INLINE_FUNCTION
   LogicalCoordinateTransformation()
-      : dir_connection{0, 1, 2}, dir_connection_inverse{0, 1, 2},
-        dir_flip{false, false, false}, offset{0, 0, 0} {};
+      : offset{0, 0, 0}, dir_connection{0, 1, 2}, dir_connection_inverse{0, 1, 2},
+        dir_flip{false, false, false} {};
 
   void SetDirection(CoordinateDirection origin, CoordinateDirection neighbor,
                     bool reversed = false) {

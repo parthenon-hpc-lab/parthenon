@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <cmath>
@@ -238,9 +239,6 @@ TaskStatus FillDerived(MeshData<Real> *md) {
     constexpr auto inner_tag =
         parthenon::ENABLE_GPU ? la::inner_tag::logical_flat : la::inner_tag::memory;
     using IST = la::IndexSpace<loop_tag, inner_tag>;
-
-    auto pm = md->GetParentPointer();
-    const int ndim = pm->ndim;
 
     // We can use cell-centered topological elements because nodes are cell memaligned
     // here
