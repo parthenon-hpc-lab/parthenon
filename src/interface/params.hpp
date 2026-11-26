@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #ifndef INTERFACE_PARAMS_HPP_
 #define INTERFACE_PARAMS_HPP_
 
@@ -81,6 +84,7 @@ class Params {
 
   template <typename T>
   const T &Get(const std::string &key) const {
+    PARTHENON_REQUIRE_THROWS(hasKey(key), "Key " + key + " doesn't exist");
     auto &pparam = myParams_.at(key);
     PARTHENON_REQUIRE_THROWS(std::type_index(pparam->type()) ==
                                  std::type_index(typeid(T)),
@@ -94,6 +98,7 @@ class Params {
   // This also avoids extraneous copies.
   template <typename T>
   T *GetMutable(const std::string &key) const {
+    PARTHENON_REQUIRE_THROWS(hasKey(key), "Key " + key + " doesn't exist");
     // immutable casts to false all others cast to true
     PARTHENON_REQUIRE_THROWS(static_cast<bool>(myMutable_.at(key)),
                              "Parameter " + key + " must be marked as mutable");
@@ -119,6 +124,7 @@ class Params {
   }
 
   const std::type_index GetType(const std::string &key) const {
+    PARTHENON_REQUIRE_THROWS(hasKey(key), "Key " + key + " doesn't exist");
     return myParams_.at(key)->type();
   }
 
@@ -137,6 +143,7 @@ class Params {
   }
 
   bool IsMutable(const std::string &key) const {
+    PARTHENON_REQUIRE_THROWS(hasKey(key), "Key " + key + " doesn't exist");
     return static_cast<bool>(myMutable_.at(key));
   }
 
