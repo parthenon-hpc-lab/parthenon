@@ -37,6 +37,7 @@ using parthenon::ApplicationInput;
 using parthenon::LogicalLocation;
 using parthenon::Mesh;
 using parthenon::MeshLayout;
+using parthenon::MeshLayoutOverlap;
 using parthenon::Metadata;
 using parthenon::Packages_t;
 using parthenon::ParameterInput;
@@ -169,7 +170,7 @@ std::shared_ptr<parthenon::MeshBlock> FindBlock(const std::shared_ptr<Mesh> &mes
 MeshLayout MakeLayout(const std::shared_ptr<Mesh> &mesh) {
   const auto locs = mesh->GetLocList();
   return MeshLayout(locs, std::vector<int>(locs.size(), 0),
-                    std::vector<double>(locs.size(), 1.0), mesh->ndim);
+                    std::vector<double>(locs.size(), 1.0));
 }
 
 } // namespace
@@ -192,7 +193,8 @@ TEST_CASE("Swarm particles remesh onto refined blocks", "[swarm][amr][MPI]") {
 
   const auto old_layout = MakeLayout(coarse_mesh);
   const auto new_layout = MakeLayout(refined_mesh);
-  const SwarmRemeshContext context(0, 0, old_layout, new_layout);
+  const MeshLayoutOverlap overlap(old_layout.Locs(), new_layout.Locs());
+  const SwarmRemeshContext context(0, 0, old_layout, new_layout, overlap);
 
   parthenon::RemeshSwarms(refined_mesh->resolved_packages, coarse_mesh->block_list,
                           refined_mesh.get(), context);
@@ -233,7 +235,9 @@ TEST_CASE("Swarm particles remesh onto derefined blocks", "[swarm][amr][MPI]") {
 
   const auto old_layout = MakeLayout(refined_mesh);
   const auto new_layout = MakeLayout(coarse_mesh);
-  const SwarmRemeshContext context(0, old_layout.NumBlocks() - 1, old_layout, new_layout);
+  const MeshLayoutOverlap overlap(old_layout.Locs(), new_layout.Locs());
+  const SwarmRemeshContext context(0, old_layout.NumBlocks() - 1, old_layout, new_layout,
+                                   overlap);
 
   parthenon::RemeshSwarms(coarse_mesh->resolved_packages, refined_mesh->block_list,
                           coarse_mesh.get(), context);

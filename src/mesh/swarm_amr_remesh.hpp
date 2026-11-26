@@ -26,15 +26,14 @@ namespace parthenon {
 
 struct SwarmRemeshContext {
   SwarmRemeshContext(int old_gid_first_in, int old_gid_last_in,
-                     const MeshLayout &old_layout_in, const MeshLayout &new_layout_in)
+                     const MeshLayout &old_layout_in, const MeshLayout &new_layout_in,
+                     const MeshLayoutOverlap &overlap_in)
       : old_gid_first(old_gid_first_in), old_gid_last(old_gid_last_in),
-        old_layout(old_layout_in), new_layout(new_layout_in) {}
+        old_layout(old_layout_in), new_layout(new_layout_in), overlap(overlap_in) {}
 
   // The new block at the same location as the old block, its parent, or (for a refined
   // block) its first daughter
-  int NewGid(const int old_gid) const {
-    return new_layout.GetOverlappingGids(OldLoc(old_gid))[0];
-  }
+  int NewGid(const int old_gid) const { return overlap.NewGids(old_gid).first; }
   const LogicalLocation &OldLoc(const int old_gid) const {
     return old_layout.Loc(old_gid);
   }
@@ -56,6 +55,7 @@ struct SwarmRemeshContext {
  private:
   const MeshLayout &old_layout;
   const MeshLayout &new_layout;
+  const MeshLayoutOverlap &overlap;
 };
 
 void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,

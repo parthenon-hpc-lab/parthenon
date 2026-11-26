@@ -112,7 +112,8 @@ TaskStatus RemeshSendsComplete(std::shared_ptr<MeshData<Real>> &md) {
 
 std::vector<std::vector<NeighborBlock>>
 Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs, int nbs, int nbe,
-                          const MeshLayout &old_layout, const MeshLayout &new_layout) {
+                          const MeshLayout &old_layout, const MeshLayout &new_layout,
+                          const MeshLayoutOverlap &overlap) {
   const auto make_nb = [this](const LogicalLocation &loc, int rank, int gid) {
     NeighborBlock nb(this, loc, loc, rank, gid, Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0,
                      0, 0);
@@ -126,10 +127,11 @@ Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs, int nbs, int 
   for (int i = 0; i < old_blocks.size(); ++i) {
     auto &pmb = old_blocks[i];
     const int on = onbs + i;
-    const auto &loc = old_layout.Loc(on);
-    for (int nn : new_layout.GetOverlappingGids(loc)) {
-      // Same location on the same rank means the block object is reused as is
-      if (new_layout.Loc(nn) == loc && new_layout.Rank(nn) == Globals::my_rank) continue;
+    // Same location on the same rank means the block object is reused as is
+    const int same = overlap.SameNewGid(on);
+    if (same >= 0 && new_layout.Rank(same) == Globals::my_rank) continue;
+    const auto nrange = overlap.NewGids(on);
+    for (int nn = nrange.first; nn < nrange.end(); ++nn) {
       pmb->remesh_neighbors.push_back(
           make_nb(new_layout.Loc(nn), new_layout.Rank(nn), nn));
     }
@@ -139,13 +141,12 @@ Mesh::SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs, int nbs, int 
   std::vector<std::vector<NeighborBlock>> new_neighbors(nbe - nbs + 1);
   for (int nn = nbs; nn <= nbe; ++nn) {
     auto &neighbors = new_neighbors[nn - nbs];
-    const auto &loc = new_layout.Loc(nn);
-    const auto ogids = old_layout.GetOverlappingGids(loc);
-    if (old_layout.Loc(ogids[0]) == loc && old_layout.Rank(ogids[0]) == Globals::my_rank)
-      continue;
-    for (int on : ogids)
+    const int same = overlap.SameOldGid(nn);
+    if (same >= 0 && old_layout.Rank(same) == Globals::my_rank) continue;
+    const auto orange = overlap.OldGids(nn);
+    for (int on = orange.first; on < orange.end(); ++on)
       neighbors.push_back(make_nb(old_layout.Loc(on), old_layout.Rank(on), on));
-    if (ogids.size() > 1) {
+    if (orange.count > 1) {
       // A coarsened block receives from all of its daughters, which share elements in
       // the interior of the parent; assign each shared element to a single daughter.
       std::vector<forest::NeighborLocation> daughters;
@@ -178,7 +179,8 @@ SortedRemeshLabels(const std::vector<std::shared_ptr<Variable<Real>>> &vars) {
 
 Mesh::RemeshCounterBuffers_
 Mesh::SendRemeshCounters_(const BlockList_t &old_blocks, int onbs, int nbs, int nbe,
-                          const MeshLayout &old_layout, const MeshLayout &new_layout) {
+                          const MeshLayout &old_layout, const MeshLayout &new_layout,
+                          const MeshLayoutOverlap &overlap) {
   RemeshCounterBuffers_ counters;
 #ifdef MPI_PARALLEL
   MPI_Comm comm = GetMPIComm(remesh_counter_comm_label);
@@ -186,7 +188,7 @@ Mesh::SendRemeshCounters_(const BlockList_t &old_blocks, int onbs, int nbs, int 
 
   std::map<int, std::vector<int>> send_data;
   for (int i = 0; i < old_blocks.size(); ++i) {
-    const int nn = new_layout.Gid(old_layout.Loc(onbs + i));
+    const int nn = overlap.SameNewGid(onbs + i);
     if (nn < 0 || new_layout.Rank(nn) == Globals::my_rank) continue;
     auto &pmb = old_blocks[i];
     auto &data = send_data[new_layout.Rank(nn)];
@@ -206,7 +208,7 @@ Mesh::SendRemeshCounters_(const BlockList_t &old_blocks, int onbs, int nbs, int 
   }
 
   for (int nn = nbs; nn <= nbe; ++nn) {
-    const int on = old_layout.Gid(new_layout.Loc(nn));
+    const int on = overlap.SameOldGid(nn);
     if (on < 0 || old_layout.Rank(on) == Globals::my_rank) continue;
     counters.recv_gids[old_layout.Rank(on)].push_back(nn);
   }
@@ -595,10 +597,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // kill all old MeshData
   mesh_data.clear();
 
-  // The old and new layouts of the mesh. The blocks of one that overlap a block of the
-  // other follow from location lookups (the same location, its parent or its daughters).
-  const MeshLayout old_layout(loclist, ranklist, costlist, ndim);
+  // The old and new layouts of the mesh and how their blocks overlap
+  const MeshLayout old_layout(loclist, ranklist, costlist);
   MeshLayout new_layout;
+  MeshLayoutOverlap overlap;
   // store old nbstart and nbend before load balancing.
   int onbs = nslist[Globals::my_rank];
   int onbe = onbs + nblist[Globals::my_rank] - 1;
@@ -607,6 +609,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     PARTHENON_INSTRUMENT
     auto newloc = forest.GetMeshBlockListAndResolveGids();
     nbtotal = newloc.size();
+    overlap = MeshLayoutOverlap(old_layout.Locs(), newloc);
 
     // A new block costs the same as the old block at its location or its parent, or the
     // mean cost of its daughters
@@ -615,26 +618,19 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     for (int nn = 0; nn < nbtotal; nn++) {
       if (newloc[nn].level() > current_level) // set the current max level
         current_level = newloc[nn].level();
-      const auto ogids = old_layout.GetOverlappingGids(newloc[nn]);
+      const auto orange = overlap.OldGids(nn);
       double cost = 0.0;
-      for (int on : ogids)
+      for (int on = orange.first; on < orange.end(); ++on)
         cost += old_layout.Cost(on);
-      newcost[nn] = cost / ogids.size();
+      newcost[nn] = cost / orange.count;
     }
 
     // Calculate new load balance
     std::vector<int> newrank(nbtotal);
     CalculateLoadBalance(newcost, newrank, nslist, nblist);
     new_layout =
-        MeshLayout(std::move(newloc), std::move(newrank), std::move(newcost), ndim);
+        MeshLayout(std::move(newloc), std::move(newrank), std::move(newcost));
   } // Construct new list region
-
-  // Blocks whose parent was a block of the old mesh
-  std::unordered_set<LogicalLocation> newly_refined;
-  for (int nn = 0; nn < nbtotal; nn++) {
-    const auto &loc = new_layout.Loc(nn);
-    if (old_layout.Gid(loc.GetParent()) >= 0) newly_refined.insert(loc);
-  }
 
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
@@ -647,18 +643,18 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // sparse variables on the new blocks
   bool any_newly_refined = false;
   for (int nn = nbs; nn <= nbe; nn++)
-    any_newly_refined = any_newly_refined || newly_refined.count(new_layout.Loc(nn));
+    any_newly_refined = any_newly_refined || overlap.IsRefined(nn);
   ProResCache_t prolongation_cache;
   int nprolong = 0;
   auto build_prolongation_cache = [&]() {
     for (int nn = nbs; nn <= nbe; nn++) {
-      if (newly_refined.count(new_layout.Loc(nn)))
+      if (overlap.IsRefined(nn))
         nprolong += new_block_list[nn - nbs]->vars_cc_.size();
     }
     prolongation_cache.Initialize(nprolong, resolved_packages.get());
     int iprolong = 0;
     for (int nn = nbs; nn <= nbe; nn++) {
-      if (newly_refined.count(new_layout.Loc(nn))) {
+      if (overlap.IsRefined(nn)) {
         auto &pmb = new_block_list[nn - nbs];
         for (auto &var : pmb->vars_cc_) {
           prolongation_cache.RegisterRegionHost(
@@ -675,7 +671,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     PARTHENON_INSTRUMENT
     ResetCommunicationInfrastructure(this);
     auto new_remesh_neighbors =
-        SetRemeshNeighbors_(block_list, onbs, nbs, nbe, old_layout, new_layout);
+        SetRemeshNeighbors_(block_list, onbs, nbs, nbe, old_layout, new_layout, overlap);
 
     // The channels (and so their tags) follow from the remesh neighbor lists, so the
     // send side can be completely set up before the new blocks exist. Coalesced comms
@@ -694,7 +690,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     if (do_coalesced_comms) pcoalesced_comms->ResolveAndSendSendBuffers();
 
     auto counters =
-        SendRemeshCounters_(block_list, onbs, nbs, nbe, old_layout, new_layout);
+        SendRemeshCounters_(block_list, onbs, nbs, nbe, old_layout, new_layout, overlap);
 
     std::shared_ptr<MeshData<Real>> md_new;
     TaskCollection tc;
@@ -710,7 +706,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       RegionSize block_size = GetDefaultBlockSize();
       for (int n = nbs; n <= nbe; n++) {
         const auto &loc = new_layout.Loc(n);
-        const int on = old_layout.Gid(loc);
+        const int on = overlap.SameOldGid(n);
         if (on >= 0 && old_layout.Rank(on) == Globals::my_rank) {
           // on the same MPI rank and same location -> just move it
           new_block_list[n - nbs] = FindMeshBlock(on);
@@ -801,7 +797,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // is determined by which new leaf block contains each particle. Run that
     // ownership-based redistribution only after the new leaf mesh and field state are
     // already in place.
-    const SwarmRemeshContext swarm_remesh_context(onbs, onbe, old_layout, new_layout);
+    const SwarmRemeshContext swarm_remesh_context(onbs, onbe, old_layout, new_layout,
+                                                  overlap);
     RemeshSwarms(resolved_packages, old_block_list, this, swarm_remesh_context);
     ClearSwarmCachesAfterRemesh(this, block_list);
 
@@ -834,6 +831,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // in order to maintain a consistent global state.
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
+      std::unordered_set<LogicalLocation> newly_refined;
+      for (int nn = 0; nn < nbtotal; nn++)
+        if (overlap.IsRefined(nn)) newly_refined.insert(new_layout.Loc(nn));
       SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist,
                             newly_refined);
       SetGMGNeighbors();

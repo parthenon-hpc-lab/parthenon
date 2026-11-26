@@ -508,7 +508,8 @@ class Mesh {
                                        int ntot);
   std::vector<std::vector<NeighborBlock>>
   SetRemeshNeighbors_(const BlockList_t &old_blocks, int onbs, int nbs, int nbe,
-                      const MeshLayout &old_layout, const MeshLayout &new_layout);
+                      const MeshLayout &old_layout, const MeshLayout &new_layout,
+                      const MeshLayoutOverlap &overlap);
   // Derefinement and sparse deallocation counters of the blocks that move between ranks
   // at the same level, by the other rank
   struct RemeshCounterBuffers_ {
@@ -518,7 +519,8 @@ class Mesh {
   RemeshCounterBuffers_ SendRemeshCounters_(const BlockList_t &old_blocks, int onbs,
                                             int nbs, int nbe,
                                             const MeshLayout &old_layout,
-                                            const MeshLayout &new_layout);
+                                            const MeshLayout &new_layout,
+                                            const MeshLayoutOverlap &overlap);
   bool RemeshCountersSent_(RemeshCounterBuffers_ &counters);
   bool TryReceiveRemeshCounters_(RemeshCounterBuffers_ &counters);
   void SetRemeshCounters_(const RemeshCounterBuffers_ &counters,
