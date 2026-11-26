@@ -50,38 +50,40 @@ template <BoundaryType BTYPE>
 void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
                                Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
-  std::unordered_map<std::size_t, std::size_t>
-      nbufs; // total (existing and new) number of buffers for
-             // given size (ignoring sparse)
-  std::unordered_map<std::size_t, std::size_t>
-      nbufs_allocated; // total that are actually allocated
+  // Number of buffers of each size, and how many of those are for allocated variables
+  std::unordered_map<std::size_t, std::size_t> nbufs, nbufs_allocated;
 
+  // The exact sizes of the send and receive buffers of each boundary, in the order
+  // ForEachBoundary visits them. Multigrid logic requires blocks sending messages to
+  // themselves (since the same block can show up on two multigrid levels). This doesn't
+  // require any data transfer, so the message size can be zero. It is essentially just a
+  // flag to show that the block is done being used on one level and can be used on the
+  // next level. Remesh transfers between an old and a new block that share a gid do
+  // carry data.
+  std::vector<std::pair<int, int>> buf_sizes;
   ForEachBoundary<BTYPE>(
       md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb, const sp_cv_t v) {
-        // Calculate the required size of the buffer for this boundary
-        int buf_size = GetBufferSize(pmb, nb, v);
-        //  LR: Multigrid logic requires blocks sending messages to themselves (since the
-        //  same block can show up on two multigrid levels). This doesn't require any data
-        //  transfer, so the message size can be zero. It is essentially just a flag to
-        //  show that the block is done being used on one level and can be used on the
-        //  next level. Remesh transfers between an old and a new block that share a gid
-        //  do carry data.
-        if (pmb->gid == nb.gid && nb.offsets.IsCell() && !nb.remesh_transfer)
-          buf_size = 0;
-
-        nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
-        nbufs_allocated[buf_size] += v->IsAllocated();
+        int send_size = 0, recv_size = 0;
+        if (pmb->gid != nb.gid || !nb.offsets.IsCell() || nb.remesh_transfer) {
+          if constexpr (IsSender(BTYPE)) send_size = GetSendBufferSize(pmb, nb, v);
+          if constexpr (IsReceiver(BTYPE))
+            if (nb.rank != Globals::my_rank) recv_size = GetReceiveBufferSize(pmb, nb, v);
+        }
+        buf_sizes.emplace_back(send_size, recv_size);
+        if constexpr (IsSender(BTYPE)) {
+          nbufs[send_size] += 1;
+          nbufs_allocated[send_size] += v->IsAllocated();
+        }
+        if constexpr (IsReceiver(BTYPE)) {
+          if (nb.rank != Globals::my_rank) {
+            nbufs[recv_size] += 1;
+            nbufs_allocated[recv_size] += v->IsAllocated();
+          }
+        }
       });
 
-  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb,
-                                 const sp_cv_t v) {
-    // Calculate the required size of the buffer for this boundary
-    int buf_size = GetBufferSize(pmb, nb, v);
-    // See comment above on the same logic.
-    if (pmb->gid == nb.gid && nb.offsets.IsCell() && !nb.remesh_transfer) buf_size = 0;
-
-    // Add a buffer pool if one does not exist for this size
-    using buf_t = buf_pool_t<Real>::base_t;
+  // Make sure there is a pool for buffers of a size, with enough free buffers
+  const auto reserve_pool = [&](int buf_size) {
     if (!pmesh->pool_map.Contains(buf_size)) {
       // Minimum number of comm buffers to initialize a pool of a
       // given shape with. As an upper bound, we use the maximum
@@ -89,15 +91,25 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
       const std::size_t nbuf = std::min(pmesh->CommBufferChunkSize(), nbufs.at(buf_size));
       pmesh->pool_map.AddPool(buf_size, nbuf);
     }
-    // Now that the pool is guaranteed to exist we can add free objects of the required
-    // amount.
     const std::int64_t new_buffers_req =
         nbufs_allocated.at(buf_size) -
         pmesh->pool_map.GetPool(buf_size).NumBuffersInPool();
     if (new_buffers_req > 0) {
       pmesh->pool_map.AddFreeObjectsToPool(buf_size, new_buffers_req);
     }
+  };
+  const auto get_resource_method = [pmesh](int buf_size) {
+    return [pmesh, buf_size](int size) {
+      PARTHENON_REQUIRE(size <= buf_size,
+                        "Asking for a buffer that is larger than size of pool.");
+      return buf_pool_t<Real>::owner_t(pmesh->pool_map.GetPool(buf_size).Get());
+    };
+  };
 
+  int ibound = 0;
+  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb,
+                                 const sp_cv_t v) {
+    const auto [send_size, recv_size] = buf_sizes[ibound++];
     const int receiver_rank = nb.rank;
     const int sender_rank = Globals::my_rank;
 
@@ -113,21 +125,17 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 #endif
 
     bool use_sparse_buffers = v->IsSet(Metadata::Sparse);
-    auto get_resource_method = [pmesh, buf_size](int size) {
-      PARTHENON_REQUIRE(size <= buf_size,
-                        "Asking for a buffer that is larger than size of pool.");
-      return buf_pool_t<Real>::owner_t(pmesh->pool_map.GetPool(buf_size).Get());
-    };
 
     // Build send buffer (unless this is a receiving flux boundary)
     if constexpr (IsSender(BTYPE)) {
+      reserve_pool(send_size);
       pmesh->LockCommLaneNumbers(BTYPE);
       for (int lane = 0; lane < pmesh->GetNumberOfCommLanes(BTYPE); ++lane) {
         auto s_key = SendKey(pmb, nb, v, BTYPE, lane);
         const int tag = pmesh->tag_map.GetTag(pmb, nb, lane);
         if (buf_map.count(s_key) == 0)
           buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-              tag, sender_rank, receiver_rank, comm, get_resource_method,
+              tag, sender_rank, receiver_rank, comm, get_resource_method(send_size),
               use_sparse_buffers);
       }
     }
@@ -135,14 +143,15 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Also build the non-local receive buffers here
     if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
+        reserve_pool(recv_size);
         pmesh->LockCommLaneNumbers(BTYPE);
         for (int lane = 0; lane < pmesh->GetNumberOfCommLanes(BTYPE); ++lane) {
           auto r_key = ReceiveKey(pmb, nb, v, BTYPE, lane);
           const int tag = pmesh->tag_map.GetTag(pmb, nb, lane);
           if (buf_map.count(r_key) == 0)
             buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-                tag, receiver_rank, sender_rank, comm, get_resource_method,
-                use_sparse_buffers);
+                tag, receiver_rank, sender_rank, comm,
+                get_resource_method(recv_size), use_sparse_buffers);
         }
       }
     }

@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #ifndef BVALS_COMMS_BND_INFO_HPP_
 #define BVALS_COMMS_BND_INFO_HPP_
@@ -137,8 +139,12 @@ struct ProResInfo {
                                         std::shared_ptr<Variable<Real>> v);
 };
 
-int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
-                  std::shared_ptr<Variable<Real>> v);
+// The number of values pmb packs into its buffer for nb, and unpacks from the buffer it
+// receives from nb
+int GetSendBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+                      std::shared_ptr<Variable<Real>> v);
+int GetReceiveBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+                         std::shared_ptr<Variable<Real>> v);
 
 using BndInfoArr_t = ParArray1DRaw<BndInfo>;
 using BndInfoArrHost_t = typename BndInfoArr_t::host_mirror_type;

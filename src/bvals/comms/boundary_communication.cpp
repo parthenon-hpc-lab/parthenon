@@ -185,8 +185,8 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
 #endif
   for (std::size_t ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
-    // Only send the packed part of the buffer, buffers are sized for the largest
-    // boundary of their kind
+    // Send what was packed, which fills the buffer except for the empty buffers of
+    // (local) multigrid messages from a block to itself
     const int packed_size = cache.bnd_info_h(ibuf).size();
     const int send_size = packed_size > 0 ? packed_size : -1;
     if (!Globals::sparse_config.enabled) {

@@ -110,23 +110,14 @@ GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v,
   return elements;
 }
 
-int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
-                  std::shared_ptr<Variable<Real>> v) {
-  // This does not do a careful job of calculating the buffer size, in many
-  // cases there will be some extra storage that is not required, but there
-  // will always be enough storage
-  auto &cb = v->IsSet(Metadata::Fine) ? pmb->f_cellbounds : pmb->cellbounds;
-  int topo_comp = (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) ? 3 : 1;
-  const IndexDomain in = IndexDomain::entire;
-  // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal
-  // fields
-  const int isize = cb.ie(in) - cb.is(in) + 2;
-  const int jsize = cb.je(in) - cb.js(in) + 2;
-  const int ksize = cb.ke(in) - cb.ks(in) + 2;
-  return (nb.offsets(X1DIR) == 0 ? isize : Globals::nghost + 1) *
-         (nb.offsets(X2DIR) == 0 ? jsize : Globals::nghost + 1) *
-         (nb.offsets(X3DIR) == 0 ? ksize : Globals::nghost + 1) * v->GetDim(6) *
-         v->GetDim(5) * v->GetDim(4) * topo_comp;
+int GetSendBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+                      std::shared_ptr<Variable<Real>> v) {
+  return BndInfo::GetSendBndInfo(pmb, nb, v, nullptr).size();
+}
+
+int GetReceiveBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+                         std::shared_ptr<Variable<Real>> v) {
+  return BndInfo::GetSetBndInfo(pmb, nb, v, nullptr).size();
 }
 
 BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
