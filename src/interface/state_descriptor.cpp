@@ -51,7 +51,8 @@ void WarnOpenPMDLabel(std::string_view label, std::string_view kind,
          "automatically for openPMD output. We recommend using only ASCII letters, "
          "digits, and underscores in field labels. Disable this warning with "
          "-DPARTHENON_WARN_NONSTANDARD_OPENPMD_NAMES=OFF.";
-  PARTHENON_WARN(msg);
+  // Parameter listings use stdout for CSV output.
+  std::cerr << "### PARTHENON WARNING\n  Message:     " << msg.str() << '\n';
 }
 
 void WarnOpenPMDComponentLabels(const std::string &field, const Metadata &metadata) {
