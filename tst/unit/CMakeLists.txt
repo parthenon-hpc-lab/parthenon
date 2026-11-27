@@ -23,6 +23,8 @@ list(APPEND unit_tests_SOURCES
     test_loop_abstraction.cpp
     test_concepts_lite.cpp
     test_coordinates.cpp
+    test_interpolation.cpp
+    test_update.cpp
     test_data_collection.cpp
     test_taskid.cpp
     test_tasklist.cpp
@@ -40,6 +42,7 @@ list(APPEND unit_tests_SOURCES
     test_mesh_data.cpp
     test_output_utils.cpp
     test_pararrays.cpp
+    test_prolongation.cpp
     test_sparse_pack.cpp
     test_parameter_input.cpp
     test_error_checking.cpp

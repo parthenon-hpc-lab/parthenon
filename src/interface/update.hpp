@@ -39,21 +39,45 @@ namespace parthenon {
 
 namespace Update {
 
+namespace impl {
+
 // Calculate the flux divergence for a specific component l of a variable v
-KOKKOS_FORCEINLINE_FUNCTION
-Real FluxDivHelper(const int l, const int k, const int j, const int i, const int ndim,
-                   const Coordinates_t &coords, const VariableFluxPack<Real> &v) {
-  Real du = (coords.FaceArea<X1DIR>(k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
-             coords.FaceArea<X1DIR>(k, j, i) * v.flux(X1DIR, l, k, j, i));
+template <typename View, typename VarIndex, typename... BlockIdx>
+KOKKOS_FORCEINLINE_FUNCTION Real FluxDivHelper(const VarIndex &l, const int k,
+                                               const int j, const int i, const int ndim,
+                                               const Coordinates_t &coords, const View &v,
+                                               BlockIdx... b) {
+  Real du = coords.FaceArea<X1DIR>(k, j, i + 1) * v.flux(b..., X1DIR, l, k, j, i + 1) -
+            coords.FaceArea<X1DIR>(k, j, i) * v.flux(b..., X1DIR, l, k, j, i);
   if (ndim >= 2) {
-    du += (coords.FaceArea<X2DIR>(k, j + 1, i) * v.flux(X2DIR, l, k, j + 1, i) -
-           coords.FaceArea<X2DIR>(k, j, i) * v.flux(X2DIR, l, k, j, i));
+    du += coords.FaceArea<X2DIR>(k, j + 1, i) * v.flux(b..., X2DIR, l, k, j + 1, i) -
+          coords.FaceArea<X2DIR>(k, j, i) * v.flux(b..., X2DIR, l, k, j, i);
   }
   if (ndim == 3) {
-    du += (coords.FaceArea<X3DIR>(k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
-           coords.FaceArea<X3DIR>(k, j, i) * v.flux(X3DIR, l, k, j, i));
+    du += coords.FaceArea<X3DIR>(k + 1, j, i) * v.flux(b..., X3DIR, l, k + 1, j, i) -
+          coords.FaceArea<X3DIR>(k, j, i) * v.flux(b..., X3DIR, l, k, j, i);
   }
   return -du / coords.CellVolume(k, j, i);
+}
+
+} // namespace impl
+
+template <typename View>
+KOKKOS_FORCEINLINE_FUNCTION Real FluxDivHelper(const int l, const int k, const int j,
+                                               const int i, const int ndim,
+                                               const Coordinates_t &coords,
+                                               const View &v) {
+  return impl::FluxDivHelper(l, k, j, i, ndim, coords, v);
+}
+
+// Sparse-pack overload with an explicit meshblock index b.
+template <typename VarIndex, class... Ts>
+KOKKOS_FORCEINLINE_FUNCTION Real FluxDivHelper(const int b, const VarIndex &l,
+                                               const int k, const int j, const int i,
+                                               const int ndim,
+                                               const Coordinates_t &coords,
+                                               const SparsePack<Ts...> &v) {
+  return impl::FluxDivHelper(l, k, j, i, ndim, coords, v, b);
 }
 
 template <typename T>
