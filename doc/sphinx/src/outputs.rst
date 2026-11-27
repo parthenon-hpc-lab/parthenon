@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI.
+
 .. _outputs:
 
 Outputs
@@ -46,6 +48,17 @@ To enable openPMD support configure Parthenon with ``PARTHENON_DISABLE_OPENPMD=O
 Simulation metadata provided by the optional ``author``, ``machine``, and ``comment``
 parameter in the ``<parthenon/job>`` input block are automatically forwarded to the
 respective openPMD standard fields.
+
+Parthenon replaces characters outside ASCII letters, digits, and underscores with
+underscores in openPMD mesh record and component names. For example, ``fluid.rho``
+produces the record ``fluid_rho_lvl0`` on level 0 with the default output layout.
+Use the original field names when selecting output variables. Parthenon reports
+an error if two fields map to the same mesh record or if two components of a
+record map to the same name.
+
+By default, Parthenon warns at field enrollment about labels that need translation,
+even in builds without openPMD support. Configure with
+``-DPARTHENON_WARN_NONSTANDARD_OPENPMD_NAMES=OFF`` to silence the warning.
 
 The most simple output block for openPMD output is
 
