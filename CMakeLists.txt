@@ -15,6 +15,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+# This file was made in part with generative AI.
+
 cmake_minimum_required(VERSION 3.16)
 
 # Imports machine-specific configuration
@@ -38,6 +40,7 @@ option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to 
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" ON)
 option(PARTHENON_USE_SYSTEM_OPENPMD "OpenPMD API is downloaded and installed automatically by default. Set this to ON to find and use a version installed on the system." OFF)
+option(PARTHENON_WARN_NONSTANDARD_OPENPMD_NAMES "Warn when enrolled field labels need renaming for openPMD output" ON)
 option(PARTHENON_ENABLE_RAW_OPENMP "Enable OpenMP for raw host loops" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)

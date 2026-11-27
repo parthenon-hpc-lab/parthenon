@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI.
 
 #include <iomanip>
 #include <iostream>
@@ -17,21 +18,49 @@
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
+#include "config.hpp"
+#include "globals.hpp"
 #include "interface/metadata.hpp"
 #include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
+#include "outputs/openpmd_names.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+#ifdef PARTHENON_WARN_NONSTANDARD_OPENPMD_NAMES
+namespace {
+void WarnOpenPMDLabel(std::string_view label, std::string_view kind,
+                      std::string_view field = {}) {
+  if (OpenPMDUtils::IsValidName(label)) return;
+
+  std::stringstream msg;
+  msg << "The " << kind << " '" << label << "'";
+  if (!field.empty()) msg << " for field '" << field << "'";
+  msg << " falls outside openPMD naming rules. Parthenon translates the label "
+         "automatically for openPMD output. We recommend using only ASCII letters, "
+         "digits, and underscores in field labels. Disable this warning with "
+         "-DPARTHENON_WARN_NONSTANDARD_OPENPMD_NAMES=OFF.";
+  PARTHENON_WARN(msg);
+}
+
+void WarnOpenPMDComponentLabels(const std::string &field, const Metadata &metadata) {
+  for (const auto &label : metadata.getComponentLabels()) {
+    WarnOpenPMDLabel(label, "component label", field);
+  }
+}
+} // namespace
+#endif
 
 void RefinementFunctionMaps::Register(const Metadata &m, std::string varname) {
   if (m.HasRefinementOps()) {
@@ -303,7 +332,14 @@ bool StateDescriptor::AddField(const std::string &field_name, const Metadata &m_
   if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
   VarID controller = VarID(controlling_field);
   if (controlling_field == "") controller = VarID(field_name);
-  return AddFieldImpl_(VarID(field_name), m, controller);
+  const bool added = AddFieldImpl_(VarID(field_name), m, controller);
+#ifdef PARTHENON_WARN_NONSTANDARD_OPENPMD_NAMES
+  if (added && !is_resolved_ && Globals::my_rank == 0) {
+    WarnOpenPMDLabel(field_name, "field name");
+    WarnOpenPMDComponentLabels(field_name, m);
+  }
+#endif
+  return added;
 }
 
 bool StateDescriptor::AddFieldImpl_(const VarID &vid, const Metadata &m_in,
@@ -360,6 +396,17 @@ bool StateDescriptor::AddSparsePoolImpl_(const SparsePool &pool) {
                       VarID(pool.base_name(), itr.first).label());
     }
   }
+
+#ifdef PARTHENON_WARN_NONSTANDARD_OPENPMD_NAMES
+  if (!is_resolved_ && Globals::my_rank == 0) {
+    WarnOpenPMDLabel(pool.base_name(), "sparse pool name");
+    for (const auto &[id, metadata] : pool.pool()) {
+      const auto field = MakeVarLabel(pool.base_name(), id);
+      WarnOpenPMDLabel(metadata.GetSparseLabel(id), "sparse output label", field);
+      WarnOpenPMDComponentLabels(field, metadata);
+    }
+  }
+#endif
 
   return true;
 }
@@ -504,6 +551,7 @@ void StateDescriptor::InvertControllerMap() {
 std::shared_ptr<StateDescriptor>
 StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   auto state = std::make_shared<StateDescriptor>("parthenon::resolved_state");
+  state->is_resolved_ = true;
 
   // The workhorse data structure. Uses sets to cache which variables
   // are of what type.

@@ -571,6 +571,9 @@ class StateDescriptor {
   RefinementFunctionMaps refinementFuncMaps_;
   Dictionary<MeshDataDescriptor> submeshdata_map_;
   std::map<TopologicalType, std::size_t> num_scratch_;
+
+ private:
+  bool is_resolved_ = false;
 };
 
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {

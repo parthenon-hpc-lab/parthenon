@@ -50,6 +50,7 @@
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/openpmd_names.hpp"
 #include "outputs/output_attr.hpp"
 #include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
@@ -70,14 +71,16 @@ using namespace OutputUtils;
 namespace OpenPMDUtils {
 
 void CheckValidName(const std::string &name) {
-  // also including \v as special char used for scalar records
-  auto is_alnum_underscore = [](char c) {
-    return (isalnum(c) || (c == '_') || c == '\v' || c == '.');
-  };
-  PARTHENON_REQUIRE_THROWS(
-      find_if_not(name.begin(), name.end(), is_alnum_underscore) == name.end(),
-      "Generated OpenPMD mesh or particle record'" + name +
-          "' is not standard compliant. Please contact Parthenon developers for a fix.");
+  PARTHENON_REQUIRE_THROWS(IsValidName(name),
+                           "Invalid openPMD name '" + name +
+                               "'. Use only ASCII letters, digits, and underscores.");
+}
+
+static std::string SanitizeName(std::string name) {
+  if (name.empty()) return "_";
+  std::replace_if(
+      name.begin(), name.end(), [](char c) { return !IsValidNameCharacter(c); }, '_');
+  return name;
 }
 
 template <typename T>
@@ -225,7 +228,9 @@ GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
         rank == 0 ? openPMD::MeshRecordComponent::SCALAR : std::to_string(flat_comp_idx);
   }
   CheckValidName(particle_record);
-  CheckValidName(particle_record_component);
+  if (particle_record_component != openPMD::MeshRecordComponent::SCALAR) {
+    CheckValidName(particle_record_component);
+  }
   return {particle_record, particle_record_component};
 }
 
@@ -282,7 +287,7 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
       // component_labels are built as GetBaseName() + "_" + suffix in VarInfo.
       const auto &full = vinfo.component_labels[comp_idx];
       const auto prefix_len = vinfo.GetBaseName().length() + 1; // skip "<base_name>_"
-      comp_name = full.substr(prefix_len);
+      comp_name = SanitizeName(full.substr(prefix_len));
     }
   } else {
     // Legacy format (version 1): each component gets its own record with the
@@ -305,9 +310,47 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
     }
   }
 
-  CheckValidName(mesh_record_name);
-  CheckValidName(comp_name);
-  return {mesh_record_name, comp_name};
+  return {SanitizeName(std::move(mesh_record_name)), std::move(comp_name)};
+}
+
+static void CheckMeshNameCollisions(const std::vector<VarInfo> &vars,
+                                    int format_version) {
+  struct RecordOwner {
+    const VarInfo &var;
+    TopologicalElement te;
+    int first_component;
+    std::unordered_map<std::string, int> components;
+  };
+  std::unordered_map<std::string, RecordOwner> records;
+
+  // The level is a common suffix, so a single level detects collisions for all levels.
+  for (const auto &var : vars) {
+    for (const auto te : var.topological_elements) {
+      for (int i = 0; i < var.num_components; ++i) {
+        const auto [record_name, component_name] =
+            GetMeshRecordAndComponentNames(var, te, i, 0, format_version);
+        const auto [record, new_record] =
+            records.try_emplace(record_name, RecordOwner{var, te, i, {}});
+        auto &owner = record->second;
+        PARTHENON_REQUIRE_THROWS(
+            new_record || (format_version >= 2 && &owner.var == &var && owner.te == te),
+            std::format("OpenPMD mesh record '{}' is shared by field '{}' (label '{}') "
+                        "and field '{}' (label '{}').",
+                        record_name, owner.var.label,
+                        owner.var.component_labels[owner.first_component], var.label,
+                        var.component_labels[i]));
+        const auto [component, new_component] =
+            owner.components.try_emplace(component_name, i);
+        PARTHENON_REQUIRE_THROWS(
+            new_component,
+            std::format("OpenPMD mesh component '{}/{}' is shared by labels '{}' and "
+                        "'{}'.",
+                        record_name, component_name,
+                        var.component_labels[component->second],
+                        var.component_labels[i]));
+      }
+    }
+  }
 }
 
 std::tuple<openPMD::Offset, openPMD::Extent>
@@ -658,6 +701,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // get list of all vars, just use first block as the list is the same for all blocks
   auto all_vars_info =
       VarInfo::GetAll(get_vars(pm->block_list.front()), bounds, f_bounds);
+  OpenPMDUtils::CheckMeshNameCollisions(all_vars_info, format_version_);
 
   // Mirroring the SparseInfo handling in HDF5 here.
   // Could probably made easier by just sequentially filling vectors, but better be safe
